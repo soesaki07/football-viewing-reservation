@@ -12,7 +12,7 @@ class Team extends Model
     use HasFactory;
 
     protected $fillable = [
-        'external_time_id',
+        'external_team_id',
         'short_name',
         'tla',
         'crest_url',

@@ -19,7 +19,7 @@ class Competition extends Model
         'is_active',
     ];
 
-    public function footballMatch(): HasMany
+    public function footballMatches(): HasMany
     {
         return $this->hasMany(FootballMatch::class);
     }
