@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "dad5a60c652b3b0b9a48b1e3464a05c3",
+    "content-hash": "5693992cd6bef74307808885aefba5a6",
     "packages": [
         {
             "name": "brick/math",
@@ -6412,16 +6412,16 @@
         },
         {
             "name": "laravel/pint",
-            "version": "v1.29.3",
+            "version": "v1.30.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/laravel/pint.git",
-                "reference": "da1d1111a6aa2e082d2a388b194afe1ba0a05d14"
+                "reference": "72a0540d1aa10b6c146bda2a22f3ae003123c0ea"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/laravel/pint/zipball/da1d1111a6aa2e082d2a388b194afe1ba0a05d14",
-                "reference": "da1d1111a6aa2e082d2a388b194afe1ba0a05d14",
+                "url": "https://api.github.com/repos/laravel/pint/zipball/72a0540d1aa10b6c146bda2a22f3ae003123c0ea",
+                "reference": "72a0540d1aa10b6c146bda2a22f3ae003123c0ea",
                 "shasum": ""
             },
             "require": {
@@ -6432,14 +6432,16 @@
                 "php": "^8.2.0"
             },
             "require-dev": {
-                "friendsofphp/php-cs-fixer": "^3.95.8",
-                "illuminate/view": "^12.62.0",
+                "composer/semver": "^3.4.4",
+                "friendsofphp/php-cs-fixer": "^3.95.17",
+                "illuminate/view": "^12.64.0",
                 "larastan/larastan": "^3.10.0",
                 "laravel-zero/framework": "^12.1.0",
                 "laravel/agent-detector": "^2.0.2",
+                "laravel/prompts": "^0.3.21",
                 "mockery/mockery": "^1.6.12",
                 "nunomaduro/termwind": "^2.4.0",
-                "pestphp/pest": "^3.8.6"
+                "pestphp/pest": "^3.8.7"
             },
             "bin": [
                 "builds/pint"
@@ -6476,7 +6478,7 @@
                 "issues": "https://github.com/laravel/pint/issues",
                 "source": "https://github.com/laravel/pint"
             },
-            "time": "2026-06-16T15:34:04+00:00"
+            "time": "2026-07-28T20:48:56+00:00"
         },
         {
             "name": "laravel/sail",
@@ -6897,6 +6899,70 @@
                 "source": "https://github.com/phar-io/version/tree/3.2.1"
             },
             "time": "2022-02-21T01:04:05+00:00"
+        },
+        {
+            "name": "phpstan/phpstan",
+            "version": "2.2.7",
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/692db47b9dddb0487934e5236e77d48594aef921",
+                "reference": "692db47b9dddb0487934e5236e77d48594aef921",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.4|^8.0"
+            },
+            "conflict": {
+                "phpstan/phpstan-shim": "*"
+            },
+            "bin": [
+                "phpstan",
+                "phpstan.phar"
+            ],
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "bootstrap.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Ondřej Mirtes"
+                },
+                {
+                    "name": "Markus Staab"
+                },
+                {
+                    "name": "Vincent Langlet"
+                }
+            ],
+            "description": "PHPStan - PHP Static Analysis Tool",
+            "keywords": [
+                "dev",
+                "static analysis"
+            ],
+            "support": {
+                "docs": "https://phpstan.org/user-guide/getting-started",
+                "forum": "https://github.com/phpstan/phpstan/discussions",
+                "issues": "https://github.com/phpstan/phpstan/issues",
+                "security": "https://github.com/phpstan/phpstan/security/policy",
+                "source": "https://github.com/phpstan/phpstan-src"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/ondrejmirtes",
+                    "type": "github"
+                },
+                {
+                    "url": "https://github.com/phpstan",
+                    "type": "github"
+                }
+            ],
+            "time": "2026-07-29T17:39:32+00:00"
         },
         {
             "name": "phpunit/php-code-coverage",
