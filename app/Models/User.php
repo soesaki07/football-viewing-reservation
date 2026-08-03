@@ -39,7 +39,7 @@ class User extends Authenticatable
         ];
     }
 
-    public function shop(): HasMany
+    public function shops(): HasMany
     {
         return $this->hasMany(Shop::class);
     }

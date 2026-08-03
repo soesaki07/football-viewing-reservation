@@ -13,6 +13,7 @@ class Team extends Model
 
     protected $fillable = [
         'external_team_id',
+        'name',
         'short_name',
         'tla',
         'crest_url',
