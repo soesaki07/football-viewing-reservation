@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -12,15 +13,17 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->string('role', 30)->default('customer')->index();
-            $table->rememberToken();
+            $table->id()->comment('ユーザーID');
+            $table->string('name')->comment('ユーザー名');
+            $table->string('email')->unique()->comment('メールアドレス');
+            $table->timestamp('email_verified_at')->nullable()->comment('メール認証日時');
+            $table->string('password')->comment('ハッシュ化パスワード');
+            $table->string('role', 30)->default('customer')->index()->comment('権限');
+            $table->rememberToken()->comment('ログイン保持用トークン');
             $table->timestamps();
         });
+
+        DB::statement("ALTER TABLE users COMMENT = 'ユーザー情報'");
     }
 
     /**
