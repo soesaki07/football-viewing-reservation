@@ -19,12 +19,14 @@ return new class extends Migration
             $table->string('description', 500)->nullable()->comment('席の説明');
             $table->unsignedSmallInteger('default_capacity')->default(0)->comment('通常時の定員');
             $table->unsignedInteger('default_price')->default(0)->comment('通常時の1人当たりの料金（円）');
-            $table->boolean('is_active')->default(true)->index()->comment(('使用フラグ'));
+            $table->boolean('is_active')->default(true)->index()->comment('使用フラグ');
             $table->timestamps();
             $table->unique(['shop_id', 'name']);
         });
 
-        DB::statement("ALTER TABLE seat_types COMMENT = '座席種別'");
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("ALTER TABLE seat_types COMMENT = '座席種別'");
+        }
     }
 
     /**

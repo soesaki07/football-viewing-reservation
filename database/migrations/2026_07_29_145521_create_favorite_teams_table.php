@@ -20,7 +20,9 @@ return new class extends Migration
             $table->unique(['user_id', 'team_id']);
         });
 
-        DB::statement("ALTER TABLE favorite_teams COMMENT = 'お気に入りチーム'");
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("ALTER TABLE favorite_teams COMMENT = 'お気に入りチーム'");
+        }
     }
 
     /**

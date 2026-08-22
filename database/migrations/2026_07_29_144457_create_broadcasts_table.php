@@ -15,7 +15,7 @@ return new class extends Migration
         Schema::create('broadcasts', function (Blueprint $table) {
             $table->id()->comment('放映情報ID');
             $table->foreignId('shop_id')->constrained()->cascadeOnUpdate()->cascadeOnDelete()->comment('店舗ID');
-            $table->foreignId('football_match_id')->constrained('football_matches')->cascadeOnUpdate()->restrictOnDelete()->comment('試合Id');
+            $table->foreignId('football_match_id')->constrained('football_matches')->cascadeOnUpdate()->restrictOnDelete()->comment('試合ID');
             $table->string('title')->nullable()->comment('店舗独自イベント名');
             $table->dateTime('reservation_start_at')->nullable()->comment('予約受付開始日時');
             $table->dateTime('reservation_end_at')->nullable()->comment('予約受付終了日時');
@@ -26,7 +26,9 @@ return new class extends Migration
             $table->unique(['shop_id', 'football_match_id']);
         });
 
-        DB::statement("ALTER TABLE broadcasts COMMENT = '放映情報'");
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("ALTER TABLE broadcasts COMMENT = '放映情報'");
+        }
     }
 
     /**

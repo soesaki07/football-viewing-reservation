@@ -29,7 +29,9 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        DB::statement("ALTER TABLE reservations COMMENT = '予約情報'");
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("ALTER TABLE reservations COMMENT = '予約情報'");
+        }
     }
 
     /**

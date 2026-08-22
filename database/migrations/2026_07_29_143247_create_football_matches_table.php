@@ -30,7 +30,9 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        DB::statement("ALTER TABLE football_matches COMMENT = '試合情報'");
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("ALTER TABLE football_matches COMMENT = '試合情報'");
+        }
     }
 
     /**

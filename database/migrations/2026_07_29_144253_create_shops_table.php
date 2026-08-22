@@ -33,7 +33,9 @@ return new class extends Migration
             $table->softDeletes();
         });
 
-        DB::statement("ALTER TABLE shops COMMENT = 'スポーツバー情報'");
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("ALTER TABLE shops COMMENT = 'スポーツバー情報'");
+        }
     }
 
     /**

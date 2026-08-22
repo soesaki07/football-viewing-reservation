@@ -23,7 +23,9 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        DB::statement("ALTER TABLE users COMMENT = 'ユーザー情報'");
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("ALTER TABLE users COMMENT = 'ユーザー情報'");
+        }
     }
 
     /**

@@ -24,7 +24,9 @@ return new class extends Migration
             $table->unique(['broadcast_id', 'seat_type_id']);
         });
 
-        DB::statement("ALTER TABLE broadcast_seat_types COMMENT = '放映席情報'");
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("ALTER TABLE broadcast_seat_types COMMENT = '放映席情報'");
+        }
     }
 
     /**
