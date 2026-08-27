@@ -17,6 +17,7 @@ class Competition extends Model
         'country_name',
         'emblem_url',
         'is_active',
+        'type',
     ];
 
     public function footballMatches(): HasMany
