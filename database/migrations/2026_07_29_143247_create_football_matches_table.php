@@ -25,7 +25,6 @@ return new class extends Migration
             $table->unsignedSmallInteger('home_score')->nullable();
             $table->unsignedSmallInteger('away_score')->nullable();
             $table->string('venue')->nullable();
-            $table->timestamp('last_api_synced_at')->nullable();
             $table->timestamps();
         });
     }
