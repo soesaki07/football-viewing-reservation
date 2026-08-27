@@ -44,7 +44,7 @@
 | email | VARCHAR | UNIQUE |
 | email_verified_at | TIMESTAMP | NULL可 |
 | password | VARCHAR | パスワード |
-| phone | VARCHAR | NULL可 |
+| date_of_birth | DATE | 必須・生年月日 |
 | role | VARCHAR | user / shop_owner / admin |
 | remember_token | VARCHAR | NULL可 |
 | created_at | TIMESTAMP | |
