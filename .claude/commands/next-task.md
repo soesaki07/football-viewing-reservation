@@ -48,6 +48,10 @@ allowed-tools: Bash(git status:*), Bash(git branch:*), Bash(git log:*), Bash(git
 7. **関係するクラスの役割**：必要であれば、これから作成・修正する可能性のある
    Controller / Service / Model / Request / Command / Test などについて、それぞれが
    どういう役割を持つべきかを説明する（コードは書かない）。
+8. **ブランチ名の提案**：決定したタスクに合わせたブランチ名を1つ提案する。このリポジトリの
+   既存ブランチ命名規則（`feature/xxx`, `docs/xxx`, `chore/xxx` など、種別/内容をkebab-caseで
+   繋げる形式）に合わせること。ブランチの作成・切り替え（`git checkout -b`等）は行わない。
+   あくまで名前を提案するだけにとどめる。
 
 ## 厳守事項
 
