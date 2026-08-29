@@ -13,8 +13,9 @@ class Competition extends Model
     protected $fillable = [
         'external_competition_id',
         'code',
+        'type',
         'name',
-        'country_name',
+        'area_name',
         'emblem_url',
         'is_active',
     ];
