@@ -12,6 +12,16 @@ class SyncCompetitionsTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config([
+            'services.football_data.base_url' => 'https://api.football-data.org/v4',
+            'services.football_data.api_key' => 'test-api-key',
+        ]);
+    }
+
     private function fakeCompetitionsResponse(): void
     {
         Http::fake([
