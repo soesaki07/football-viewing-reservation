@@ -60,10 +60,12 @@ Football-Data.orgから取得する大会情報。
 |---|---|---|
 | id | BIGINT | PK |
 | external_competition_id | BIGINT | API側大会ID・UNIQUE |
+| code | VARCHAR | 大会コード・UNIQUE |
+| type | VARCHAR | NULL可・大会種別 |
 | name | VARCHAR | 大会名 |
-| code | VARCHAR | 大会コード |
-| type | VARCHAR | 大会種別 |
+| area_name | VARCHAR | NULL可・開催エリア名（国名の場合も、"World"等の地域名の場合もある） |
 | emblem_url | VARCHAR | NULL可・大会ロゴ |
+| is_active | BOOLEAN | 大会が有効かどうか（APIに存在する大会は常にtrue） |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |
 

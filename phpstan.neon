@@ -1,3 +1,6 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
 parameters:
     # 解析の厳しさ（0〜9、9が最も厳しい）。
     # 学習中のプロジェクトのため、いきなり厳しいレベルにはせず、
