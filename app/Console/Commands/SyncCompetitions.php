@@ -31,13 +31,14 @@ class SyncCompetitions extends Command
                     'name' => $competition['name'],
                     'area_name' => $competition['area']['name'],
                     'emblem_url' => $competition['emblem'],
+                    'is_active' => true,
                 ];
             }
 
             Competition::upsert(
                 $competitions,
                 ['external_competition_id'],
-                ['name', 'code', 'type', 'area_name', 'emblem_url'],
+                ['name', 'code', 'type', 'area_name', 'emblem_url', 'is_active'],
             );
 
             $this->info('同期に成功しました。');

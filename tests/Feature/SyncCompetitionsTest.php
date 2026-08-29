@@ -65,6 +65,7 @@ class SyncCompetitionsTest extends TestCase
             'name' => 'Old Name',
             'area_name' => 'Old Area',
             'emblem_url' => 'https://old.example.com/old.png',
+            'is_active' => false,
         ]);
 
         $this->fakeCompetitionsResponse();
@@ -79,6 +80,7 @@ class SyncCompetitionsTest extends TestCase
             'name' => 'FIFA World Cup',
             'area_name' => 'World',
             'emblem_url' => 'https://crests.football-data.org/wc.png',
+            'is_active' => true,
         ]);
     }
 
