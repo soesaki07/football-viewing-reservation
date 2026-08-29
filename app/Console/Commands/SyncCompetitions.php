@@ -21,18 +21,22 @@ class SyncCompetitions extends Command
         try {
             $response = $service->getCompetitions();
 
-            $competitions = [];
+            if (! isset($response['competitions']) || ! is_array($response['competitions'])) {
+                throw new \RuntimeException('Football-Data.org APIのレスポンスにcompetitionsキー（配列）が含まれていません。');
+            } else {
+                $competitions = [];
 
-            foreach ($response['competitions'] as $competition) {
-                $competitions[] = [
-                    'external_competition_id' => $competition['id'],
-                    'code' => $competition['code'],
-                    'type' => $competition['type'],
-                    'name' => $competition['name'],
-                    'area_name' => $competition['area']['name'],
-                    'emblem_url' => $competition['emblem'],
-                    'is_active' => true,
-                ];
+                foreach ($response['competitions'] as $competition) {
+                    $competitions[] = [
+                        'external_competition_id' => $competition['id'],
+                        'code' => $competition['code'],
+                        'type' => $competition['type'],
+                        'name' => $competition['name'],
+                        'area_name' => $competition['area']['name'],
+                        'emblem_url' => $competition['emblem'],
+                        'is_active' => true,
+                    ];
+                }
             }
 
             Competition::upsert(

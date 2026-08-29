@@ -105,4 +105,26 @@ class SyncCompetitionsTest extends TestCase
 
         $this->assertDatabaseCount('competitions', 0);
     }
+
+    public function test_sync_fails_and_skips_save_when_competitions_key_is_missing(): void
+    {
+        Http::fake([
+            '*/competitions' => Http::response(['count' => 0]),
+        ]);
+
+        $this->artisan('app:sync-competitions')->assertFailed();
+
+        $this->assertDatabaseCount('competitions', 0);
+    }
+
+    public function test_sync_fails_and_skips_save_when_competitions_is_not_an_array(): void
+    {
+        Http::fake([
+            '*/competitions' => Http::response(['competitions' => 'unexpected-string']),
+        ]);
+
+        $this->artisan('app:sync-competitions')->assertFailed();
+
+        $this->assertDatabaseCount('competitions', 0);
+    }
 }
