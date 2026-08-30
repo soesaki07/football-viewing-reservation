@@ -1,6 +1,6 @@
 ---
-description: レビュー→Pint→PHPStan→Test→Commit→Push→PR作成まで行う（Mergeは行わない）
-allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git branch:*), Bash(git rev-parse:*), Bash(git add:*), Bash(git commit:*), Bash(composer:*), Bash(php artisan:*), Bash(./vendor/bin/pint:*), Bash(./vendor/bin/phpstan:*), Bash(./vendor/bin/sail:*), Bash(docker ps:*), Bash(gh pr list:*), Bash(gh pr view:*), Read, Glob, Grep
+description: レビュー→テスト作成→Pint→PHPStan→Test→Commit→Push→PR作成まで行う（Mergeは行わない）
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git branch:*), Bash(git rev-parse:*), Bash(git add:*), Bash(git commit:*), Bash(composer:*), Bash(php artisan:*), Bash(./vendor/bin/pint:*), Bash(./vendor/bin/phpstan:*), Bash(./vendor/bin/sail:*), Bash(docker ps:*), Bash(gh pr list:*), Bash(gh pr view:*), Read, Write, Edit, Glob, Grep
 ---
 
 # review-pr
@@ -53,9 +53,11 @@ Step 1で確認した差分（`git diff main...HEAD`、変更ファイル）を�
 - API通信（timeout、エラーハンドリング、APIキー等の秘密情報管理）
 - UTC/JSTの日時処理
 - N+1などのパフォーマンス問題
-- テスト不足
 - CLAUDE.mdのルール違反
 - docs/の仕様（table-definition.md / feature-list.md / screen-specification.md）との不一致
+
+**テストコードが存在しない・不足していること自体は、このステップの指摘対象にしない**
+（テストの作成はStep 3で行う）。
 
 問題が見つかった場合は、以下の順番で日本語で報告し、**この時点で処理を停止してください**
 （Step 3以降には進まない）。
@@ -72,7 +74,36 @@ Step 1で確認した差分（`git diff main...HEAD`、変更ファイル）を�
 
 ---
 
-## Step 3: Laravel Pint
+## Step 3: テストコード作成
+
+Step 2で問題が無かった場合のみ実行する。**レビュー対象のコード自体は変更せず**、
+テストファイルの新規作成・追記のみを行う。
+
+Step 1で確認した差分（新規・変更されたクラスやメソッド）を対象に、以下3種類のテストケースを作成する。
+
+- **正常系**: 想定通りの入力・レスポンスで期待通り動作するケース
+- **準異常系**: 通信断・タイムアウトなど、そもそも処理が成立しない基盤的な失敗（例: `ConnectionException`）
+- **異常系**: 相手（API等）がエラーレスポンスを返す、想定外の形のデータを返すなど、
+  処理は成立するが失敗する・弾くべきケース
+
+既に対象コードに対してこの3種類のテストが揃っている場合は、新規作成せずそのまま次に進んでよい。
+
+作成後（または既に揃っている場合はそのまま）、Sailの有無に応じた方法
+（`./vendor/bin/sail artisan test` 等）で**実際にテストを実行**する。
+
+テストが失敗した場合は、以下を日本語で報告して**この時点で処理を停止してください**。
+
+- 失敗したテスト
+- エラー内容
+- 考えられる原因
+- 確認するべき箇所
+
+自動修正はしない（対象コードは直さず、ユーザーに修正を委ねる）。すべて成功したら
+「テストコード作成：成功（追加◯件・全◯件成功）」のように結果を報告し、Step 4へ進む。
+
+---
+
+## Step 4: Laravel Pint
 
 このプロジェクトはLaravel Sailを使用しています。まず環境を確認してください
 （`compose.yaml`の内容、`docker ps`でSailコンテナ`laravel.test`が起動しているか）。
@@ -88,11 +119,11 @@ Step 1で確認した差分（`git diff main...HEAD`、変更ファイル）を�
 - 問題内容
 - 修正方法（`pint`をオプションなしで実行すれば直る場合はその旨も伝える）
 
-問題がなければ「Pint：問題なし」と報告し、Step 4へ進む。
+問題がなければ「Pint：問題なし」と報告し、Step 5へ進む。
 
 ---
 
-## Step 4: PHPStan
+## Step 5: PHPStan
 
 プロジェクト直下の `phpstan.neon`（解析対象: `app/`、level 5）を使用して、Sailの有無に応じて
 適切な方法（`./vendor/bin/sail`経由 or 直接実行）でPHPStanの静的解析を実行する。
@@ -108,14 +139,15 @@ Step 1で確認した差分（`git diff main...HEAD`、変更ファイル）を�
 - 原因
 - 修正のヒント
 
-自動修正はしない。問題がなければ「PHPStan：問題なし」と報告し、Step 5へ進む。
+自動修正はしない。問題がなければ「PHPStan：問題なし」と報告し、Step 6へ進む。
 
 ---
 
-## Step 5: Laravel Test
+## Step 6: Laravel Test
 
 `composer.json`の`test`スクリプト（`composer test`）、またはSail経由で
-`php artisan test` に相当する処理を実行する。
+`php artisan test` に相当する処理を実行し、Step 3で作成・確認したテストも含めて
+プロジェクト全体のテストが通ることを最終確認する。
 
 テストが失敗した場合は、以下を日本語で報告して**この時点で処理を停止してください**。
 
@@ -125,13 +157,13 @@ Step 1で確認した差分（`git diff main...HEAD`、変更ファイル）を�
 - 確認するべき箇所
 - 修正のヒント
 
-自動修正はしない。すべて成功したら「Test：問題なし」と報告し、Step 6へ進む。
+自動修正はしない。すべて成功したら「Test：問題なし」と報告し、Step 7へ進む。
 
 ---
 
-## Step 6: PR内容生成
+## Step 7: PR内容生成
 
-Step 2〜5がすべて問題なしだった場合のみ実行する。
+Step 2〜6がすべて問題なしだった場合のみ実行する。
 
 `git diff main...HEAD`と変更ファイル一覧をもとに、以下を日本語で生成する。
 
@@ -152,6 +184,7 @@ Step 2〜5がすべて問題なしだった場合のみ実行する。
 ## 確認内容
 
 - コードレビュー
+- テストコード作成
 - Laravel Pint
 - PHPStan
 - Laravel Test
@@ -161,7 +194,7 @@ Step 2〜5がすべて問題なしだった場合のみ実行する。
 
 ---
 
-## Step 7: Commit
+## Step 8: Commit
 
 commitする前に、以下を必ず確認する。
 
@@ -171,12 +204,12 @@ commitする前に、以下を必ず確認する。
 
 **上記に問題がある場合は、絶対にcommitせずここで停止し、ユーザーに確認してください。**
 
-問題がなければ、今回の変更のみをステージングし、Step 6で生成した日本語のコミット
-メッセージでcommitする。
+問題がなければ、今回の変更（Step 3で作成したテストファイルを含む）のみをステージングし、
+Step 7で生成した日本語のコミットメッセージでcommitする。
 
 ---
 
-## Step 8: Push
+## Step 9: Push
 
 commit成功後、現在のfeatureブランチをoriginへpushする。
 
@@ -188,21 +221,22 @@ pushに失敗した場合は、原因を日本語で説明してここで停止�
 
 ---
 
-## Step 9: Pull Request作成
+## Step 10: Pull Request作成
 
 push成功後、`gh pr list --head <現在のブランチ>` 等で既存のPRがすでに存在しないか確認する。
 
 - 既存のPRがある場合：新しく作らず、既存PRのURLを報告して終了する
-- 存在しない場合：GitHub CLI（`gh pr create`）を使用し、`main`へのPRを、Step 6で生成した
+- 存在しない場合：GitHub CLI（`gh pr create`）を使用し、`main`へのPRを、Step 7で生成した
   タイトル・説明文で作成する
 
 ---
 
-## Step 10: 完了報告
+## Step 11: 完了報告
 
 以下を日本語でまとめて報告する。
 
 - コードレビュー：成功
+- テストコード作成：成功（追加したテストの概要）
 - Laravel Pint：成功
 - PHPStan：成功
 - Laravel Test：成功
@@ -215,7 +249,7 @@ push成功後、`gh pr list --head <現在のブランチ>` 等で既存のPRが
 
 ## 絶対に自動実行しないこと
 
-- 実装コードの自動生成・自動修正
+- レビュー対象コード自体の自動生成・自動修正（Step 3で作成するテストコードは除く）
 - レビュー指摘の自動修正
 - `.env`のcommit
 - APIキーや秘密情報のcommit
