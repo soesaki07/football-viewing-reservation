@@ -10,4 +10,7 @@ if (app()->isLocal()) {
     Route::get('/test-api', function (FootballDataService $service) {
         return response()->json($service->getCompetitions());
     });
+    Route::get('/teams-api', function (FootballDataService $service) {
+        return response()->json($service->getTeams());
+    });
 }
