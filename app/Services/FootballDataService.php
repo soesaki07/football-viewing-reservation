@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Competition;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class FootballDataService
 {
@@ -32,5 +34,31 @@ class FootballDataService
         $response->throw();
 
         return $response->json();
+    }
+
+    public function getTeams(): array
+    {
+        $teams = [];
+        $competitionCodes = Competition::pluck('code');
+
+        try {
+            foreach ($competitionCodes as $competitionCode) {
+                $response = $this->client()
+                    ->get($this->baseUrl.'/competitions/'.$competitionCode.'/teams')
+                    ->throw()->json();
+                sleep(6);
+                if (! isset($response['teams']) || ! is_array($response['teams'])) {
+                    throw new \RuntimeException('Football-Data.org APIのレスポンスにteamsキー（配列）が含まれていません。');
+                } else {
+                    foreach ($response['teams'] as $team) {
+                        $teams[] = $team;
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('大会情報の同期に失敗しました', ['exception' => $e]);
+        }
+
+        return ['teams' => $teams];
     }
 }
