@@ -61,4 +61,31 @@ class FootballDataService
 
         return ['teams' => $teams];
     }
+
+    public function getMatches(): array
+    {
+        $footballMatches = [];
+        $competitionCodes = Competition::pluck('code');
+
+        try {
+            foreach ($competitionCodes as $competitionCode) {
+                $response = $this->client()
+                    ->get($this->baseUrl.'/competitions/'.$competitionCode.'/matches')
+                    ->throw()->json();
+                sleep(6);
+                if (! isset($response['matches']) || ! is_array($response['matches'])) {
+                    throw new \RuntimeException('Football-Data.org APIのレスポンスにmatchesキー（配列）が含まれていません。');
+                } else {
+                    foreach ($response['matches'] as $footballMatch) {
+                        $footballMatches[] = $footballMatch;
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('試合情報の同期に失敗しました', ['exception' => $e]);
+        }
+
+        return ['footballMatches' => $footballMatches];
+
+    }
 }

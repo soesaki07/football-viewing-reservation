@@ -106,6 +106,7 @@ Football-Data.orgから取得する試合情報。
 | competition_id | BIGINT | FK → competitions.id |
 | home_team_id | BIGINT | FK → teams.id |
 | away_team_id | BIGINT | FK → teams.id |
+| season_start_year | INT | NULL可・シーズンの開始年 |
 | match_day | INT | NULL可・節（第何節か） |
 | stage | VARCHAR | NULL可・ステージ（グループステージ／決勝トーナメント等） |
 | kickoff_at | DATETIME | UTCで保存 |
