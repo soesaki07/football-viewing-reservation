@@ -20,17 +20,44 @@
         </select>
     </label>
 
-    <label class="flex flex-1 flex-col gap-1 text-sm font-semibold text-pitch-100">
-        何節か選択
-        <select name="match_day" id="matchDay" onchange="this.form.submit()"
-                class="rounded-lg border-0 bg-white px-3 py-2 text-sm font-medium text-pitch-950 shadow-inner focus:ring-2 focus:ring-gold-500 focus:outline-none">
-            @foreach ($matchDays as $matchDayOption)
-                <option value="{{ $matchDayOption }}" @selected((int) $matchDayOption === $matchDay)>
-                    第{{ $matchDayOption }}節
-                </option>
-            @endforeach
-        </select>
-    </label>
+    @php
+        $stageLabels = [
+            'LEAGUE_STAGE' => 'リーグステージ',
+            'GROUP_STAGE' => 'グループステージ',
+            'LAST_32' => 'ベスト32',
+            'LAST_16' => 'ベスト16',
+            'QUARTER_FINALS' => 'ベスト8',
+            'SEMI_FINALS' => '準決勝',
+            'THIRD_PLACE' => '3位決定戦',
+            'FINAL' => '決勝',
+            'PLAY_OFFS' => 'プレイオフ',
+        ];
+    @endphp
+    @if ($isRegularSeasonOnly)
+        <label class="flex flex-1 flex-col gap-1 text-sm font-semibold text-pitch-100">
+            何節か選択
+            <select name="match_day" id="matchDay" onchange="this.form.submit()"
+                    class="rounded-lg border-0 bg-white px-3 py-2 text-sm font-medium text-pitch-950 shadow-inner focus:ring-2 focus:ring-gold-500 focus:outline-none">
+                @foreach ($matchDays as $matchDayOption)
+                    <option value="{{ $matchDayOption }}" @selected((int) $matchDayOption === $matchDay)>
+                        第{{ $matchDayOption }}節
+                    </option>
+                @endforeach
+            </select>
+        </label>
+    @else
+        <label class="flex flex-1 flex-col gap-1 text-sm font-semibold text-pitch-100">
+            ステージ選択
+            <select name="stage" id="stage" onchange="this.form.submit()"
+                    class="rounded-lg border-0 bg-white px-3 py-2 text-sm font-medium text-pitch-950 shadow-inner focus:ring-2 focus:ring-gold-500 focus:outline-none">
+                @foreach ($stages as $stageOption)
+                    <option value="{{ $stageOption }}" @selected($stageOption === $stage)>
+                        {{ $stageLabels[$stageOption] ?? $stageOption }}
+                    </option>
+                @endforeach
+            </select>
+        </label>
+    @endif
 </form>
 
 @php
@@ -52,7 +79,7 @@
             @php
                 $statusInfo = $statusLabels[$footballMatch->status] ?? ['label' => $footballMatch->status, 'class' => 'bg-pitch-100 text-pitch-700'];
             @endphp
-            <div class="group relative overflow-hidden rounded-xl border border-pitch-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+            <a href="{{ route('matches.show', $footballMatch) }}" class="group relative overflow-hidden rounded-xl border border-pitch-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
                 <span class="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-pitch-600 to-gold-500"></span>
 
                 <p class="mb-3 flex items-center justify-between gap-3 text-base font-bold text-pitch-950 sm:text-lg">
@@ -88,7 +115,7 @@
                         {{ $statusInfo['label'] }}
                     </span>
                 </p>
-            </div>
+            </a>
         @endforeach
     </div>
 @else
