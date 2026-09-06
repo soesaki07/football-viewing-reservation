@@ -29,7 +29,7 @@ class MatchController extends Controller
             $footballMatches = FootballMatch::with(['homeTeam', 'awayTeam'])
                 ->where('competition_id', $competition->id)
                 ->where('match_day', $matchDay)
-                ->latest('kickoff_at')
+                ->oldest('kickoff_at')
                 ->get();
         }
 
