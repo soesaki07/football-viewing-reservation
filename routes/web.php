@@ -19,3 +19,4 @@ if (app()->isLocal()) {
     });
 }
 Route::get('/matches/index', [MatchController::class, 'index'])->name('matches.index');
+Route::get('/matches/{id}', [MatchController::class, 'show'])->name('matches.show');
