@@ -6,4 +6,17 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* スタジアム/エネルギッシュ配色: ピッチの深緑 + ゴールドのアクセント */
+    --color-pitch-950: #04150d;
+    --color-pitch-900: #062a17;
+    --color-pitch-800: #0a4023;
+    --color-pitch-700: #0f5c31;
+    --color-pitch-600: #16793f;
+    --color-pitch-500: #1f9750;
+    --color-pitch-100: #e3f6ea;
+    --color-pitch-50: #f2fbf5;
+
+    --color-gold-500: #f2b705;
+    --color-gold-400: #f7cb3d;
 }

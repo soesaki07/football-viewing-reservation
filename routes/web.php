@@ -1,10 +1,11 @@
 <?php
 
+use App\Http\Controllers\MatchController;
 use App\Services\FootballDataService;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('matches.index');
 });
 if (app()->isLocal()) {
     Route::get('/test-api', function (FootballDataService $service) {
@@ -17,3 +18,4 @@ if (app()->isLocal()) {
         return response()->json($service->getMatches());
     });
 }
+Route::get('/matches/index', [MatchController::class, 'index'])->name('matches.index');

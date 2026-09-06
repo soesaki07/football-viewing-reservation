@@ -2,15 +2,13 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Override;
 
 class FootballMatch extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
         'external_match_id',
         'competition_id',
@@ -26,6 +24,15 @@ class FootballMatch extends Model
         'venue',
         'last_api_synced_at',
     ];
+
+    #[Override]
+    protected function casts(): array
+    {
+        return [
+            'kickoff_at' => 'datetime',
+            'last_api_synced_at' => 'datetime',
+        ];
+    }
 
     public function competition(): BelongsTo
     {
