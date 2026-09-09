@@ -18,9 +18,17 @@
                     <span>欧州サッカー観戦予約</span>
                 </a>
 
-                <nav class="hidden gap-6 text-sm font-medium text-pitch-100 sm:flex">
-                    <a href="{{ url('/') }}" class="transition hover:text-gold-400">試合一覧</a>
-                </nav>
+                <div class="flex items-center gap-6">
+                    <nav class="hidden gap-6 text-sm font-medium text-pitch-100 sm:flex">
+                        @auth
+                            <a href="{{ url('/') }}" class="transition hover:text-gold-400">試合一覧</a>
+                            <form action="{{ route('logout') }}" method="POST">
+                                @csrf
+                                <button type="submit" class="text-sm font-medium text-pitch-100 transition hover:text-gold-400">ログアウト</button>
+                            </form>
+                        @endauth
+                    </nav>
+                </div>
             </div>
         </header>
 

@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\MatchController;
 use App\Services\FootballDataService;
 use Illuminate\Support\Facades\Route;
@@ -18,5 +20,12 @@ if (app()->isLocal()) {
         return response()->json($service->getMatches());
     });
 }
-Route::get('/matches/index', [MatchController::class, 'index'])->name('matches.index');
-Route::get('/matches/{id}', [MatchController::class, 'show'])->name('matches.show');
+Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [LoginController::class, 'login']);
+Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
+Route::post('/register', [RegisterController::class, 'register']);
+Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+Route::middleware('auth')->group(function () {
+    Route::get('/matches', [MatchController::class, 'index'])->name('matches.index');
+    Route::get('/matches/{id}', [MatchController::class, 'show'])->name('matches.show');
+});
