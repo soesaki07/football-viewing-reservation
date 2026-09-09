@@ -5,12 +5,20 @@ namespace Tests\Feature;
 use App\Models\Competition;
 use App\Models\FootballMatch;
 use App\Models\Team;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class MatchControllerTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->actingAs(User::factory()->create());
+    }
 
     private function createMatch(Competition $competition, Team $homeTeam, Team $awayTeam, array $overrides = []): FootballMatch
     {
@@ -48,7 +56,7 @@ class MatchControllerTest extends TestCase
         $this->createMatch($competition, $home, $away, ['match_day' => 1]);
         $this->createMatch($competition, $home, $away, ['match_day' => 2, 'external_match_id' => 999998]);
 
-        $response = $this->get('/matches/index');
+        $response = $this->get('/matches');
 
         $response->assertOk();
         $response->assertSee('Arsenal FC');
@@ -70,7 +78,7 @@ class MatchControllerTest extends TestCase
         $this->createMatch($competition, $home, $away, ['match_day' => 1]);
         $this->createMatch($competition, $away, $other, ['match_day' => 2, 'external_match_id' => 999997]);
 
-        $response = $this->get('/matches/index?competition=PL&match_day=2');
+        $response = $this->get('/matches?competition=PL&match_day=2');
 
         $response->assertOk();
         $response->assertSee('Liverpool FC');
@@ -93,7 +101,7 @@ class MatchControllerTest extends TestCase
             'stage' => 'FINAL',
         ]);
 
-        $response = $this->get('/matches/index?competition=WC&stage=FINAL');
+        $response = $this->get('/matches?competition=WC&stage=FINAL');
 
         $response->assertOk();
         $response->assertSee('Brazil');
@@ -131,7 +139,7 @@ class MatchControllerTest extends TestCase
 
     public function test_index_shows_empty_state_for_unknown_competition(): void
     {
-        $response = $this->get('/matches/index?competition=DOES_NOT_EXIST');
+        $response = $this->get('/matches?competition=DOES_NOT_EXIST');
 
         $response->assertOk();
         $response->assertSee('該当する試合が見つかりませんでした。');
