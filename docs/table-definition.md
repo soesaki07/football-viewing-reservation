@@ -298,6 +298,7 @@ UNIQUE(user_id, team_id)
 
 - **shops**：論理削除（SoftDeletes）を基本とする。物理削除は行わず、店舗を非表示にする場合も座席種別・放映情報・予約履歴はそのまま保持する。
 - **reservationsへ到達する外部キー**：`reservations.user_id`、`reservations.broadcast_seat_type_id`、およびその先の `broadcast_seat_types.seat_type_id` / `broadcast_seat_types.broadcast_id` / `broadcasts.shop_id` / `broadcasts.football_match_id` など、予約履歴に到達する経路の外部キーは、履歴保護のため **RESTRICT（参照されている間は削除不可）** を基本とする。
+- **favorite_teams**：物理削除とする。お気に入りは予約履歴のような過去の事実の記録ではなく「現在応援しているか」という状態を表すだけのデータであり、他テーブルから`favorite_teams.id`への参照も存在しないため、論理削除で保持する意味がない。また`UNIQUE(user_id, team_id)`制約があるため、論理削除にすると一度外したチームを再度お気に入り登録する際に既存行との衝突を避ける追加ロジックが必要になり、Eloquentの`sync()`による差し替えとも相性が悪い。
 - 上記以外（大会・チームなど予約履歴と直接紐づかないマスタ系データ）の削除ポリシーは、個別に検討する。
 
 ---
