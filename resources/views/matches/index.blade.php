@@ -5,6 +5,11 @@
     <span class="text-gold-500">⚽</span>
     試合一覧
 </h1>
+@if (session('success'))
+    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+        {{ session('success') }}
+    </div>
+@endif
 
 <form method="GET" action="{{ route('matches.index') }}"
       class="mb-8 flex flex-col gap-4 rounded-xl bg-pitch-950 p-4 shadow-md sm:flex-row sm:items-end sm:gap-6 sm:p-5">

@@ -21,6 +21,7 @@
                 <div class="flex items-center gap-6">
                     <nav class="hidden gap-6 text-sm font-medium text-pitch-100 sm:flex">
                         @auth
+                            <a href="{{ route('select.teams') }}" class="transition hover:text-gold-400">お気に入り登録</a>
                             <a href="{{ url('/') }}" class="transition hover:text-gold-400">試合一覧</a>
                             <form action="{{ route('logout') }}" method="POST">
                                 @csrf
