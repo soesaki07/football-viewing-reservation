@@ -27,7 +27,7 @@ class RegisterTest extends TestCase
     {
         $response = $this->post('/register', $this->validPayload());
 
-        $response->assertRedirect(route('matches.index'));
+        $response->assertRedirect(route('select.teams'));
         $this->assertTrue(Auth::check());
 
         $user = User::where('email', 'taro@example.com')->first();
