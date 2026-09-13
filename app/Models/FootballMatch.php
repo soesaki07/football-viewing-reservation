@@ -77,6 +77,22 @@ class FootballMatch extends Model
         ];
     }
 
+    private const STATUS_LABELS = [
+        'SCHEDULED' => ['label' => '開催前', 'class' => 'bg-pitch-100 text-pitch-700'],
+        'TIMED' => ['label' => '開催前', 'class' => 'bg-pitch-100 text-pitch-700'],
+        'IN_PLAY' => ['label' => 'LIVE', 'class' => 'animate-pulse bg-red-100 text-red-700'],
+        'PAUSED' => ['label' => 'LIVE（中断中）', 'class' => 'bg-red-100 text-red-700'],
+        'FINISHED' => ['label' => '終了', 'class' => 'bg-pitch-950 text-gold-400'],
+        'POSTPONED' => ['label' => '延期', 'class' => 'bg-yellow-100 text-yellow-800'],
+        'SUSPENDED' => ['label' => '中断', 'class' => 'bg-yellow-100 text-yellow-800'],
+        'CANCELLED' => ['label' => '中止', 'class' => 'bg-gray-200 text-gray-600'],
+    ];
+
+    public function statusInfo(): array
+    {
+        return self::STATUS_LABELS[$this->status] ?? ['label' => $this->status, 'class' => 'bg-pitch-100 text-pitch-700'];
+    }
+
     public function competition(): BelongsTo
     {
         return $this->belongsTo(Competition::class);
