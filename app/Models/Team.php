@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -15,14 +17,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $tla
  * @property string|null $crest_url
  * @property string|null $country_name
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\FootballMatch> $awayMatches
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read Collection<int, FootballMatch> $awayMatches
  * @property-read int|null $away_matches_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\User> $favoritedByUsers
+ * @property-read Collection<int, User> $favoritedByUsers
  * @property-read int|null $favorited_by_users_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\FootballMatch> $homeMatches
+ * @property-read Collection<int, FootballMatch> $homeMatches
  * @property-read int|null $home_matches_count
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Team newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Team newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Team query()
@@ -35,6 +38,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Team whereShortName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Team whereTla($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Team whereUpdatedAt($value)
+ *
  * @mixin \Eloquent
  */
 class Team extends Model

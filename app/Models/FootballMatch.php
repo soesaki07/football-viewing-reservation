@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Override;
 
 /**
@@ -16,19 +18,20 @@ use Override;
  * @property int|null $season_start_year
  * @property int|null $match_day
  * @property string|null $stage
- * @property \Illuminate\Support\Carbon $kickoff_at
+ * @property Carbon $kickoff_at
  * @property string $status
  * @property int|null $home_score
  * @property int|null $away_score
  * @property string|null $venue
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
- * @property \Illuminate\Support\Carbon|null $last_api_synced_at
- * @property-read \App\Models\Team $awayTeam
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Broadcast> $broadcasts
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property Carbon|null $last_api_synced_at
+ * @property-read Team $awayTeam
+ * @property-read Collection<int, Broadcast> $broadcasts
  * @property-read int|null $broadcasts_count
- * @property-read \App\Models\Competition $competition
- * @property-read \App\Models\Team $homeTeam
+ * @property-read Competition $competition
+ * @property-read Team $homeTeam
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FootballMatch newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FootballMatch newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FootballMatch query()
@@ -48,6 +51,7 @@ use Override;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FootballMatch whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FootballMatch whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FootballMatch whereVenue($value)
+ *
  * @mixin \Eloquent
  */
 class FootballMatch extends Model

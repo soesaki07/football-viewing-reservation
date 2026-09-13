@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -25,14 +27,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $closing_time
  * @property string|null $website_url
  * @property string $status
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
- * @property \Illuminate\Support\Carbon|null $deleted_at
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Broadcast> $broadcasts
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property Carbon|null $deleted_at
+ * @property-read Collection<int, Broadcast> $broadcasts
  * @property-read int|null $broadcasts_count
- * @property-read \App\Models\User $owner
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\SeatType> $seatTypes
+ * @property-read User $owner
+ * @property-read Collection<int, SeatType> $seatTypes
  * @property-read int|null $seat_types_count
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Shop newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Shop newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Shop onlyTrashed()
@@ -58,6 +61,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Shop whereWebsiteUrl($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Shop withTrashed(bool $withTrashed = true)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Shop withoutTrashed()
+ *
  * @mixin \Eloquent
  */
 class Shop extends Model

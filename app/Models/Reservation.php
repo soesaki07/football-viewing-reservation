@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -19,10 +20,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $visited_at
  * @property string|null $customer_note
  * @property string|null $shop_note
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read \App\Models\BroadcastSeatType $broadcastSeatType
- * @property-read \App\Models\User $user
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read BroadcastSeatType $broadcastSeatType
+ * @property-read User $user
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Reservation newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Reservation newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Reservation query()
@@ -41,6 +43,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Reservation whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Reservation whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Reservation whereVisitedAt($value)
+ *
  * @mixin \Eloquent
  */
 class Reservation extends Model
