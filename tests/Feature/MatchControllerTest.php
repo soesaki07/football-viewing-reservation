@@ -144,4 +144,97 @@ class MatchControllerTest extends TestCase
         $response->assertOk();
         $response->assertSee('該当する試合が見つかりませんでした。');
     }
+
+    public function test_index_shows_favorite_teams_by_default_when_user_has_favorites(): void
+    {
+        $competition = Competition::create([
+            'external_competition_id' => 2021,
+            'code' => 'PL',
+            'name' => 'Premier League',
+            'area_name' => 'England',
+            'is_active' => true,
+        ]);
+        $home = Team::create(['external_team_id' => 1, 'name' => 'Arsenal FC']);
+        $away = Team::create(['external_team_id' => 2, 'name' => 'Chelsea FC']);
+        $this->createMatch($competition, $home, $away, ['kickoff_at' => now()->addDay()]);
+
+        $user = User::factory()->create();
+        $user->favoriteTeams()->sync([$home->id]);
+        $this->actingAs($user);
+
+        $response = $this->get('/matches');
+
+        $response->assertOk();
+        $response->assertSee('Arsenal FC');
+        $response->assertSee('消化試合');
+        $response->assertSee('これからの試合');
+        $response->assertDontSee('何節か選択');
+    }
+
+    public function test_index_shows_full_list_when_favorite_param_is_zero(): void
+    {
+        $competition = Competition::create([
+            'external_competition_id' => 2021,
+            'code' => 'PL',
+            'name' => 'Premier League',
+            'area_name' => 'England',
+            'is_active' => true,
+        ]);
+        $home = Team::create(['external_team_id' => 1, 'name' => 'Arsenal FC']);
+        $away = Team::create(['external_team_id' => 2, 'name' => 'Chelsea FC']);
+        $this->createMatch($competition, $home, $away, ['match_day' => 1]);
+
+        $user = User::factory()->create();
+        $user->favoriteTeams()->sync([$home->id]);
+        $this->actingAs($user);
+
+        $response = $this->get('/matches?favorite=0');
+
+        $response->assertOk();
+        $response->assertSee('何節か選択');
+    }
+
+    public function test_index_shows_separate_section_per_favorite_team(): void
+    {
+        $competition = Competition::create([
+            'external_competition_id' => 2021,
+            'code' => 'PL',
+            'name' => 'Premier League',
+            'area_name' => 'England',
+            'is_active' => true,
+        ]);
+        $teamA = Team::create(['external_team_id' => 1, 'name' => 'Arsenal FC']);
+        $teamB = Team::create(['external_team_id' => 2, 'name' => 'Chelsea FC']);
+        $other = Team::create(['external_team_id' => 3, 'name' => 'Liverpool FC']);
+        $this->createMatch($competition, $teamA, $other, ['kickoff_at' => now()->addDay()]);
+        $this->createMatch($competition, $teamB, $other, ['kickoff_at' => now()->addDays(2), 'external_match_id' => 999996]);
+
+        $user = User::factory()->create();
+        $user->favoriteTeams()->sync([$teamA->id, $teamB->id]);
+        $this->actingAs($user);
+
+        $response = $this->get('/matches');
+
+        $response->assertOk();
+        $response->assertSeeInOrder(['Arsenal FC', 'Chelsea FC']);
+    }
+
+    public function test_index_ignores_favorite_param_when_user_has_no_favorites(): void
+    {
+        $competition = Competition::create([
+            'external_competition_id' => 2021,
+            'code' => 'PL',
+            'name' => 'Premier League',
+            'area_name' => 'England',
+            'is_active' => true,
+        ]);
+        $home = Team::create(['external_team_id' => 1, 'name' => 'Arsenal FC']);
+        $away = Team::create(['external_team_id' => 2, 'name' => 'Chelsea FC']);
+        $this->createMatch($competition, $home, $away, ['match_day' => 1]);
+
+        $response = $this->get('/matches?favorite=1');
+
+        $response->assertOk();
+        $response->assertSee('何節か選択');
+    }
 }

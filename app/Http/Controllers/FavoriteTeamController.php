@@ -38,7 +38,11 @@ class FavoriteTeamController extends Controller
 
         $teams = Team::whereIn('id', array_keys($teamCompetitionCodes))->orderBy('name')->get();
 
-        return view('favorite.selectTeams', compact('teams', 'competitions', 'user', 'competitionCode', 'teamCompetitionCodes'));
+        $favoriteTeamIds = $user->favoriteTeams->pluck('id');
+        $hasFavoriteTeams = $favoriteTeamIds->isNotEmpty();
+        $showFavoriteOnly = $hasFavoriteTeams && $request->boolean('favorite', true);
+
+        return view('favorite.selectTeams', compact('teams', 'competitions', 'user', 'competitionCode', 'teamCompetitionCodes', 'hasFavoriteTeams', 'showFavoriteOnly'));
     }
 
     public function saveFavoriteTeams(FavoriteTeamRequest $request)

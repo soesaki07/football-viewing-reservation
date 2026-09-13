@@ -51,6 +51,9 @@ class User extends Authenticatable
         return $this->hasMany(Reservation::class);
     }
 
+    /**
+     * @return BelongsToMany<Team, $this>
+     */
     public function favoriteTeams(): BelongsToMany
     {
         return $this->belongsToMany(Team::class, 'favorite_teams')->withTimestamps();
