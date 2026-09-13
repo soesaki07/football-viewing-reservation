@@ -42,7 +42,9 @@
             @foreach ($teams as $team)
                 <label class="team-card flex cursor-pointer items-center gap-3 rounded-xl border border-pitch-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg has-[:checked]:border-gold-500 has-[:checked]:ring-2 has-[:checked]:ring-gold-500"
                        data-competitions="{{ implode(' ', $teamCompetitionCodes[$team->id] ?? []) }}">
-                    <input type="checkbox" name="team_ids[]" value="{{ $team->id }}" class="h-5 w-5 shrink-0 accent-gold-500">
+                    <input type="checkbox" name="team_ids[]" value="{{ $team->id }}"
+                           @checked($favoriteTeamIds->contains($team->id))
+                           class="h-5 w-5 shrink-0 accent-gold-500">
                     <img src="{{ $team->crest_url }}" alt="" class="h-10 w-10 shrink-0 object-contain">
                     <span class="truncate text-sm font-bold text-pitch-950">{{ $team->short_name ?? $team->name }}</span>
                 </label>

@@ -52,6 +52,29 @@ class FavoriteTeamControllerTest extends TestCase
         $response->assertSee('Chelsea FC');
     }
 
+    public function test_select_favorite_teams_marks_existing_favorites_as_checked(): void
+    {
+        $user = User::factory()->create();
+        $competition = Competition::create([
+            'external_competition_id' => 2021,
+            'code' => 'PL',
+            'name' => 'Premier League',
+            'area_name' => 'England',
+            'is_active' => true,
+        ]);
+        $home = Team::create(['external_team_id' => 1, 'name' => 'Arsenal FC']);
+        $away = Team::create(['external_team_id' => 2, 'name' => 'Chelsea FC']);
+        $this->createMatch($competition, $home, $away);
+        $user->favoriteTeams()->sync([$home->id]);
+
+        $response = $this->actingAs($user)->get('/select/teams');
+
+        $response->assertOk();
+        $content = $response->getContent();
+        $this->assertMatchesRegularExpression('/value="'.$home->id.'"\s+checked/', $content);
+        $this->assertDoesNotMatchRegularExpression('/value="'.$away->id.'"\s+checked/', $content);
+    }
+
     public function test_guest_cannot_access_select_favorite_teams(): void
     {
         $response = $this->get('/select/teams');

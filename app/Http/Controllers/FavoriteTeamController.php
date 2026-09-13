@@ -42,7 +42,7 @@ class FavoriteTeamController extends Controller
         $hasFavoriteTeams = $favoriteTeamIds->isNotEmpty();
         $showFavoriteOnly = $hasFavoriteTeams && $request->boolean('favorite', true);
 
-        return view('favorite.selectTeams', compact('teams', 'competitions', 'user', 'competitionCode', 'teamCompetitionCodes', 'hasFavoriteTeams', 'showFavoriteOnly'));
+        return view('favorite.selectTeams', compact('teams', 'competitions', 'user', 'competitionCode', 'teamCompetitionCodes', 'hasFavoriteTeams', 'showFavoriteOnly', 'favoriteTeamIds'));
     }
 
     public function saveFavoriteTeams(FavoriteTeamRequest $request)
