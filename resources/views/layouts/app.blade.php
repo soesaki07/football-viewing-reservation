@@ -24,9 +24,9 @@
                             <a href="{{ route('select.teams') }}" class="transition hover:text-gold-400">お気に入り登録</a>
                             @if ($hasFavoriteTeams)
                                 @if ($showFavoriteOnly)
-                                    <a href="{{ route('matches.index', ['favorite' => 0]) }}">試合一覧</a>
+                                    <a href="{{ route('matches.index', ['favorite' => 0]) }}" class="transition hover:text-gold-400">試合一覧</a>
                                 @else
-                                    <a href="{{ route('matches.index', ['favorite' => 1]) }}">お気に入りの試合に戻る</a>
+                                    <a href="{{ route('matches.index', ['favorite' => 1]) }}" class="transition hover:text-gold-400">お気に入りの試合に戻る</a>
                                 @endif
                             @endif
                             <form action="{{ route('logout') }}" method="POST">
