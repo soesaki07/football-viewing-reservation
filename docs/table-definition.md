@@ -143,14 +143,21 @@ Asia/Tokyo（JST）
 | カラム | 型 | 制約・用途 |
 |---|---|---|
 | id | BIGINT | PK |
-| owner_id | BIGINT | FK → users.id |
+| user_id | BIGINT | FK → users.id（店舗オーナー） |
 | name | VARCHAR | 店舗名 |
-| description | TEXT | NULL可 |
-| address | VARCHAR | 住所 |
-| phone | VARCHAR | NULL可 |
-| latitude | DECIMAL | NULL可 |
-| longitude | DECIMAL | NULL可 |
+| postal_code | VARCHAR(10) | NULL可・郵便番号 |
+| prefecture | VARCHAR(50) | NULL可・都道府県 |
+| city | VARCHAR(100) | NULL可・市区町村 |
+| address_line | VARCHAR | 番地以降の住所 |
+| latitude | DECIMAL(10,7) | NULL可 |
+| longitude | DECIMAL(10,7) | NULL可 |
 | google_place_id | VARCHAR | NULL可・UNIQUE |
+| phone_number | VARCHAR(30) | NULL可 |
+| description | TEXT | NULL可 |
+| opening_time | TIME | NULL可・開店時刻 |
+| closing_time | TIME | NULL可・閉店時刻 |
+| website_url | VARCHAR(2048) | NULL可 |
+| status | VARCHAR(30) | 店舗の公開状態。デフォルト`draft`（値の一覧は未確定） |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |
 | deleted_at | TIMESTAMP | SoftDeletes |
