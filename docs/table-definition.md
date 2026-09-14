@@ -157,10 +157,19 @@ Asia/Tokyo（JST）
 | opening_time | TIME | NULL可・開店時刻 |
 | closing_time | TIME | NULL可・閉店時刻 |
 | website_url | VARCHAR(2048) | NULL可 |
-| status | VARCHAR(30) | 店舗の公開状態。デフォルト`draft`（値の一覧は未確定） |
+| status | VARCHAR(30) | 店舗の公開状態。デフォルト`draft` |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |
 | deleted_at | TIMESTAMP | SoftDeletes |
+
+### status
+
+```text
+draft
+published
+```
+
+`draft`はオーナーが登録中で一般ユーザーには非公開の状態、`published`は一覧・詳細画面に表示される公開状態を表す。
 
 Google Mapsと連携して位置情報を表示する。
 
