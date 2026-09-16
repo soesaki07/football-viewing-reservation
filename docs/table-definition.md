@@ -90,6 +90,7 @@ Football-Data.orgから取得するクラブ情報。
 | short_name | VARCHAR | NULL可 |
 | tla | VARCHAR | NULL可・略称 |
 | crest_url | VARCHAR | NULL可・エンブレム |
+| country_name | VARCHAR(100) | NULL可・国名 |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |
 
@@ -185,11 +186,21 @@ Google Mapsと連携して位置情報を表示する。
 |---|---|---|
 | id | BIGINT | PK |
 | shop_id | BIGINT | FK → shops.id |
-| name | VARCHAR | 座席名 |
-| description | TEXT | NULL可 |
-| capacity | INT | 座席数 |
+| name | VARCHAR(100) | 座席名 |
+| description | VARCHAR(500) | NULL可 |
+| default_capacity | INT | 座席数のデフォルト値。放映ごとの実際の販売席数は`broadcast_seat_types.capacity`で管理する |
+| default_price | INT | 1人あたり料金のデフォルト値（円）。放映ごとの実際の料金は`broadcast_seat_types.price`で管理する |
+| is_active | BOOLEAN | 座席種別の有効/無効フラグ。デフォルト`true` |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |
+
+制約：
+
+```text
+UNIQUE(shop_id, name)
+```
+
+同じ店舗内で同名の座席種別は登録できない。
 
 例：
 
@@ -210,11 +221,22 @@ Google Mapsと連携して位置情報を表示する。
 | id | BIGINT | PK |
 | shop_id | BIGINT | FK → shops.id |
 | football_match_id | BIGINT | FK → football_matches.id |
-| status | VARCHAR | 放映状態 |
-| reservation_start_at | DATETIME | 予約開始日時 |
-| reservation_end_at | DATETIME | 予約終了日時 |
+| title | VARCHAR | NULL可・放映タイトル |
+| reservation_start_at | DATETIME | NULL可・予約開始日時 |
+| reservation_end_at | DATETIME | NULL可・予約終了日時 |
+| doors_open_at | DATETIME | NULL可・開場日時 |
+| status | VARCHAR(30) | 放映状態。デフォルト`draft`（値の一覧は未確定） |
+| notes | TEXT | NULL可・店舗向けメモ |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |
+
+制約：
+
+```text
+UNIQUE(shop_id, football_match_id)
+```
+
+同じ店舗が同じ試合を重複して放映登録することはできない。
 
 ---
 
@@ -229,10 +251,20 @@ Google Mapsと連携して位置情報を表示する。
 | id | BIGINT | PK |
 | broadcast_id | BIGINT | FK → broadcasts.id |
 | seat_type_id | BIGINT | FK → seat_types.id |
-| price | INT | 1人あたり料金（円） |
 | capacity | INT | 当該放映で販売する席数 |
+| price | INT | 1人あたり料金（円） |
+| max_people_per_reservation | INT | 1予約あたりの最大人数。デフォルト4 |
+| is_active | BOOLEAN | 有効/無効フラグ。デフォルト`true` |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |
+
+制約：
+
+```text
+UNIQUE(broadcast_id, seat_type_id)
+```
+
+同じ放映内で同じ座席種別を重複登録することはできない。
 
 ---
 
@@ -246,12 +278,13 @@ Google Mapsと連携して位置情報を表示する。
 | reservation_code | VARCHAR | UNIQUE・予約番号 |
 | user_id | BIGINT | FK → users.id |
 | broadcast_seat_type_id | BIGINT | FK |
-| party_size | INT | 予約人数 |
+| number_of_people | INT | 予約人数 |
 | unit_price | INT | 予約時点の1人料金 |
 | total_price | INT | 予約時点の合計金額 |
 | status | VARCHAR | 予約状態 |
 | reserved_at | DATETIME | 予約日時 |
 | cancelled_at | DATETIME | NULL可 |
+| visited_at | DATETIME | NULL可・来店確認日時 |
 | customer_note | TEXT | NULL可 |
 | shop_note | TEXT | NULL可 |
 | created_at | TIMESTAMP | |
