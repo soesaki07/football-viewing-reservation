@@ -14,8 +14,17 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // 開発用のダミーデータ・管理者アカウントを作るため、本番では実行させない
+        if (app()->isProduction()) {
+            throw new \RuntimeException('開発用シーダーは本番環境では実行できません。');
+        }
+
         $this->call([
             UserSeeder::class,
+            ShopSeeder::class,
+            SeatTypeSeeder::class,
+            BroadcastSeeder::class,
+            BroadcastSeatTypeSeeder::class,
         ]);
     }
 }
