@@ -225,10 +225,19 @@ UNIQUE(shop_id, name)
 | reservation_start_at | DATETIME | NULL可・予約開始日時 |
 | reservation_end_at | DATETIME | NULL可・予約終了日時 |
 | doors_open_at | DATETIME | NULL可・開場日時 |
-| status | VARCHAR(30) | 放映状態。デフォルト`draft`（値の一覧は未確定） |
+| status | VARCHAR(30) | 放映の公開状態。デフォルト`draft` |
 | notes | TEXT | NULL可・店舗向けメモ |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |
+
+### status
+
+```text
+draft
+published
+```
+
+`draft`は店舗が登録中で一般ユーザーには非公開の状態、`published`は一般ユーザーに公開される状態を表す。
 
 制約：
 
