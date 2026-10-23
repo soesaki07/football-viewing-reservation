@@ -28,7 +28,7 @@ class ShopFactory extends Factory
         return [
             'name' => fake()->company(),
             'postal_code' => fake('ja_JP')->postcode(),
-            'prefecture' => fake()->prefecture(),
+            'prefecture' => fake('ja_JP')->prefecture(),
             'city' => fake()->city(),
             'address_line' => fake()->streetAddress(),
             'latitude' => fake()->latitude(35.5, 35.9),
