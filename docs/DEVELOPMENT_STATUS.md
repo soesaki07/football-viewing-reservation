@@ -16,7 +16,7 @@ MVPに向けた機能実装フェーズ。`docs/feature-list.md`のうち「1. �
 - **ヘッダーの切り替えリンクのホバースタイル**（PR #25）。
 - **`docs/table-definition.md`を実装済みマイグレーションに合わせて修正**（PR #26〜#29）: `shops` / `seat_types` / `broadcasts` / `broadcast_seat_types` / `reservations` / `teams`。`shops.status`と`broadcasts.status`は`draft` / `published`に確定。
 - **開発用Factory・Seeder**（PR #30）: `Shop` / `SeatType` / `Broadcast` / `BroadcastSeatType`のFactoryとSeeder、`UserFactory::shopOwner()`、`config/seeder.php`、`DatabaseSeeder`の本番ガード。テスト31件を`tests/Feature/Seeders/`に追加（PR時点で全69件成功、Pint・PHPStan問題なし）。
-- **セッション引き継ぎ・開発ルーティン用スラッシュコマンド**: `/next-task`・`/review-pr`・`/style-view`・`/handoff`・`/resume`（`.claude/commands/`配下）。
+- **セッション引き継ぎ・開発ルーティン用スラッシュコマンド**: `/next-task`・`/style-view`・`/handoff`・`/resume`（`.claude/commands/`配下）。
 
 ## 現在実装中
 
@@ -57,7 +57,7 @@ CLAUDE.mdに記載済みの恒久ルール（UTC/JST変換、Httpファサード
 - `BroadcastSeeder`は同期済みの未来の試合が前提。0件のときは警告を出して何も作らない。
 - 開発DBは2026-09-21時点で、シード済み（`users` 51 / `shops` 10 / `seat_types` 26 / `broadcasts` 41 / `broadcast_seat_types` 108 / `football_matches` 3749 / `reservations` 0）。
 - 店舗・放映・予約の画面、Controller、ルートは存在しない。`ReservationController`はresourceの空メソッドが並ぶ雛形のみで、`routes/web.php`にも予約・店舗系のルートは無い。
-- `/review-pr`実行時は、作業ブランチが直前にマージ済みの別タスクの名前のまま残っていないか（新しい作業を無関係なブランチ名の上で続けていないか）を確認する。該当する場合は最新の`main`から新しいブランチを切り直す。本題と無関係な問題を見つけた場合も、別ブランチ・別PRに切り出してから本題を続ける運用（例: Pint整形をPR #23、仕様書の修正をPR #26〜#29として切り出した）。
+- PR作成時は、作業ブランチが直前にマージ済みの別タスクの名前のまま残っていないか（新しい作業を無関係なブランチ名の上で続けていないか）を確認する。該当する場合は最新の`main`から新しいブランチを切り直す。本題と無関係な問題を見つけた場合も、別ブランチ・別PRに切り出してから本題を続ける運用（例: Pint整形をPR #23、仕様書の修正をPR #26〜#29として切り出した）。
 - 作業用featureブランチは、マージ後にローカルで`main`を`pull`しないと、そのブランチの作業ツリーだけ古いファイル内容のままになる（ブランチ自体は`main`の更新を取り込まない）。手元の`main`が古いまま`main`との差分を見ると、すでにマージ済みの変更が「未マージの差分」に見えて誤解しやすい。セッション開始時に`git fetch`し、`main`へ切り替えて`pull`しておく。
 - アプリコードの変更は必ずfeatureブランチ上で行う。作業前に`git branch --show-current`で`main`にいないか確認する。
 - コミットメッセージ末尾に`Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`と`Claude-Session:`行を付与する慣習がある。

@@ -47,7 +47,7 @@ allowed-tools: Bash(git status:*), Bash(git branch:*), Bash(git log:*), Bash(git
 
 - アプリケーションコード（`app/` / `routes/` / `database/` / `resources/` 等）を変更しない
 - `CLAUDE.md`を変更しない
-- `.claude/commands/next-task.md` / `.claude/commands/review-pr.md`を変更しない
+- `.claude/commands/next-task.md`を変更しない
 - 新機能を実装しない
 - バグ修正をしない
 - 次に実装する新機能を勝手に決めない
