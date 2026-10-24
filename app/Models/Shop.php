@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -68,6 +69,8 @@ class Shop extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const STATUS_PUBLISHED = 'published';
+
     protected $fillable = [
         'user_id',
         'name',
@@ -99,5 +102,98 @@ class Shop extends Model
     public function broadcasts(): HasMany
     {
         return $this->hasMany(Broadcast::class);
+    }
+
+    /**
+     * 公開中の店舗に絞り込む。
+     *
+     * @param  Builder<Shop>  $query
+     */
+    public function scopePublished(Builder $query): void
+    {
+        $query->where('status', self::STATUS_PUBLISHED);
+    }
+
+    public function isPublished(): bool
+    {
+        return $this->status === self::STATUS_PUBLISHED;
+    }
+
+    /**
+     * 都道府県・市区町村・番地をつなげた住所（郵便番号は含まない）。
+     */
+    public function fullAddress(): string
+    {
+        return $this->prefecture.$this->city.$this->address_line;
+    }
+
+    /**
+     * 営業時間を「17:00〜翌1:00」の形式で返す。どちらかが未設定なら null。
+     * DB の値は JST の時刻なので、タイムゾーンの変換はしない。
+     */
+    public function businessHoursLabel(): ?string
+    {
+        if ($this->opening_time === null || $this->closing_time === null) {
+            return null;
+        }
+
+        $opening = Carbon::parse($this->opening_time);
+        $closing = Carbon::parse($this->closing_time);
+        // 閉店時刻が開店時刻より前なら、日をまたいで営業している
+        $nextDay = $closing->format('H:i') < $opening->format('H:i') ? '翌' : '';
+
+        return $opening->format('G:i').'〜'.$nextDay.$closing->format('G:i');
+    }
+
+    /**
+     * Web サイトの URL がリンクにしてよい形式（http / https）か。
+     * javascript: などのスキームをリンクにしないための確認。
+     */
+    public function hasSafeWebsiteUrl(): bool
+    {
+        if ($this->website_url === null) {
+            return false;
+        }
+
+        $scheme = parse_url($this->website_url, PHP_URL_SCHEME);
+
+        return is_string($scheme) && in_array(strtolower($scheme), ['http', 'https'], true);
+    }
+
+    /**
+     * Maps Embed API の URL。場所は place_id、緯度経度、住所の順に、使えるものを指定する。
+     */
+    public function googleMapsEmbedUrl(string $apiKey): string
+    {
+        if ($this->google_place_id !== null) {
+            $query = 'place_id:'.$this->google_place_id;
+        } elseif ($this->latitude !== null && $this->longitude !== null) {
+            $query = $this->latitude.','.$this->longitude;
+        } else {
+            $query = $this->fullAddress();
+        }
+
+        return 'https://www.google.com/maps/embed/v1/place?'.http_build_query([
+            'key' => $apiKey,
+            'q' => $query,
+        ]);
+    }
+
+    /**
+     * API キーが不要な、Google マップで店舗を開くリンクの URL。
+     */
+    public function googleMapsSearchUrl(): string
+    {
+        $params = [
+            'api' => 1,
+            'query' => $this->latitude !== null && $this->longitude !== null
+                ? $this->latitude.','.$this->longitude
+                : $this->fullAddress(),
+        ];
+        if ($this->google_place_id !== null) {
+            $params['query_place_id'] = $this->google_place_id;
+        }
+
+        return 'https://www.google.com/maps/search/?'.http_build_query($params);
     }
 }

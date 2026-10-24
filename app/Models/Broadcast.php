@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -47,6 +48,8 @@ class Broadcast extends Model
 {
     use HasFactory;
 
+    public const STATUS_PUBLISHED = 'published';
+
     protected $fillable = [
         'shop_id',
         'football_match_id',
@@ -71,5 +74,15 @@ class Broadcast extends Model
     public function broadcastSeatTypes(): HasMany
     {
         return $this->hasMany(BroadcastSeatType::class);
+    }
+
+    /**
+     * 公開中の放映に絞り込む。
+     *
+     * @param  Builder<Broadcast>  $query
+     */
+    public function scopePublished(Builder $query): void
+    {
+        $query->where('status', self::STATUS_PUBLISHED);
     }
 }

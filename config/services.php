@@ -40,4 +40,9 @@ return [
         'api_key' => env('FOOTBALL_DATA_API_KEY'),
     ],
 
+    // 地図の埋め込みに使う Maps Embed API のキー（HTML に出るため、リファラーと API の制限を必ずかける）
+    'google_maps' => [
+        'embed_key' => env('GOOGLE_MAPS_EMBED_API_KEY'),
+    ],
+
 ];
