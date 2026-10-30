@@ -112,6 +112,9 @@ class FootballMatch extends Model
         return $this->belongsTo(Team::class, 'away_team_id');
     }
 
+    /**
+     * @return HasMany<Broadcast, $this>
+     */
     public function broadcasts(): HasMany
     {
         return $this->hasMany(Broadcast::class);

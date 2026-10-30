@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\FavoriteTeamController;
 use App\Http\Controllers\MatchController;
+use App\Http\Controllers\ShopController;
 use App\Services\FootballDataService;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +30,7 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::middleware('auth')->group(function () {
     Route::get('/matches', [MatchController::class, 'index'])->name('matches.index');
     Route::get('/matches/{id}', [MatchController::class, 'show'])->name('matches.show');
+    Route::get('/shops/{shop}', [ShopController::class, 'show'])->name('shops.show');
     Route::get('/select/teams', [FavoriteTeamController::class, 'selectFavoriteTeams'])->name('select.teams');
     Route::put('/select/teams/save', [FavoriteTeamController::class, 'saveFavoriteTeams'])->name('save.teams');
 });
