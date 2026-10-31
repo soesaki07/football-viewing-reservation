@@ -98,6 +98,20 @@ class Reservation extends Model
     }
 
     /**
+     * 予約状態の表示名。未知の値はそのまま返す。
+     */
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            self::STATUS_CONFIRMED => '予約確定',
+            self::STATUS_CANCELLED => 'キャンセル済み',
+            self::STATUS_VISITED => '来店済み',
+            self::STATUS_NO_SHOW => '来店なし',
+            default => $this->status,
+        };
+    }
+
+    /**
      * 確定済み（席を押さえている）予約に絞り込む。cancelled / no_show / visited は含まない。
      *
      * @param  Builder<Reservation>  $query

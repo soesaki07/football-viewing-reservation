@@ -11,6 +11,8 @@ use App\Models\Shop;
 use App\Models\User;
 use App\Services\ReservationService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -98,7 +100,7 @@ class ReservationController extends Controller
     }
 
     /**
-     * 予約完了画面。予約した本人だけが見られる。
+     * 予約完了画面。予約した本人だけが見られる（他人の予約は 404）。
      */
     public function complete(Request $request, Reservation $reservation): View
     {
@@ -115,6 +117,27 @@ class ReservationController extends Controller
         $shop = Shop::withTrashed()->findOrFail($broadcast->shop_id);
 
         return view('reservations.complete', [...compact('reservation', 'broadcast', 'shop'), ...$this->navigation($request)]);
+    }
+
+    /**
+     * 予約詳細画面。予約した本人だけが見られる（他人の予約は 404）。
+     */
+    public function show(Request $request, Reservation $reservation): View
+    {
+        Gate::authorize('view', $reservation);
+
+        // 店舗が後から削除されても表示できるよう、削除済みも読み込む
+        $reservation->load([
+            'broadcastSeatType.seatType',
+            'broadcastSeatType.broadcast.footballMatch.homeTeam',
+            'broadcastSeatType.broadcast.footballMatch.awayTeam',
+            'broadcastSeatType.broadcast.shop' => fn (Relation $query) => $query->withoutGlobalScope(SoftDeletingScope::class),
+        ]);
+
+        $broadcast = $reservation->broadcastSeatType->broadcast;
+        $shop = $broadcast->shop;
+
+        return view('reservations.show', [...compact('reservation', 'broadcast', 'shop'), ...$this->navigation($request)]);
     }
 
     /**
