@@ -24,6 +24,19 @@ class UserRoleDefaultTest extends TestCase
         $this->assertSame('user', $user->refresh()->role);
     }
 
+    public function test_一括代入でroleを渡しても反映されない(): void
+    {
+        $user = User::create([
+            'name' => 'テスト',
+            'email' => 'mass-assign-role@example.com',
+            'password' => 'password',
+            'date_of_birth' => '2000-01-01',
+            'role' => 'admin',
+        ]);
+
+        $this->assertSame('user', $user->refresh()->role);
+    }
+
     public function test_db_tableのinsertでroleを指定しないとuserになる(): void
     {
         DB::table('users')->insert([

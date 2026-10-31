@@ -45,7 +45,7 @@
 | email_verified_at | TIMESTAMP | NULL可 |
 | password | VARCHAR | パスワード |
 | date_of_birth | DATE | 必須・生年月日 |
-| role | VARCHAR | user / shop_owner / admin（デフォルト `user`） |
+| role | VARCHAR | user / shop_owner / admin（デフォルト `user`）。一括代入（`$fillable`）の対象外で、設定はコード上で明示する |
 | remember_token | VARCHAR | NULL可 |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |

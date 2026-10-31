@@ -56,12 +56,12 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    // role は権限を決める値なので、一括代入の対象に含めない（設定はコード上で明示する）
     protected $fillable = [
         'name',
         'email',
         'password',
         'date_of_birth',
-        'role',
     ];
 
     protected $hidden = [
