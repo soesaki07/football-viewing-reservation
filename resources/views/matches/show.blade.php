@@ -85,6 +85,55 @@
             @endif
         </span>
     </div>
+
+    <section class="mt-8">
+        <h2 class="mb-4 flex items-center gap-2 text-xl font-extrabold tracking-tight text-pitch-950">
+            <span class="text-gold-500">🍺</span>
+            放映店舗
+        </h2>
+        @if ($isFinished)
+            <p class="rounded-xl border border-pitch-100 bg-white p-6 text-center text-sm text-pitch-700 shadow-sm">この試合の放映は終了しました。</p>
+        @elseif ($broadcastShops->isEmpty())
+            <p class="rounded-xl border border-pitch-100 bg-white p-6 text-center text-sm text-pitch-700 shadow-sm">放映店舗がありません。</p>
+        @else
+            @php
+                $sortLabels = ['seats' => '空席の多い順', 'price' => '料金の安い順', 'name' => '店舗名順'];
+            @endphp
+            <div class="mb-3 flex flex-wrap items-center gap-2 text-sm">
+                <span class="font-semibold text-pitch-500">並び順</span>
+                @foreach ($sortLabels as $sortKey => $sortLabel)
+                    <a href="{{ request()->fullUrlWithQuery(['sort' => $sortKey]) }}"
+                       @if ($sort === $sortKey) aria-current="true" @endif
+                       class="rounded-full px-3 py-1 font-bold transition {{ $sort === $sortKey ? 'bg-pitch-950 text-gold-400' : 'bg-pitch-100 text-pitch-700 hover:text-gold-500' }}">{{ $sortLabel }}</a>
+                @endforeach
+            </div>
+            <ul class="divide-y divide-pitch-100 overflow-hidden rounded-xl border border-pitch-100 bg-white shadow-sm">
+                @foreach ($broadcastShops as $row)
+                    <li class="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <a href="{{ route('shops.show', $row['shop']) }}" class="font-bold text-pitch-950 transition hover:text-gold-500">{{ $row['shop']->name }}</a>
+                            <p class="text-sm text-pitch-500">{{ $row['shop']->prefecture }}{{ $row['shop']->city }}</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-3 text-sm text-pitch-700">
+                            <span class="font-bold">{{ number_format($row['minPrice']) }}円〜</span>
+                            <span>
+                                @if ($row['seats'] > 0)
+                                    残り{{ $row['seats'] }}席
+                                @else
+                                    <span class="font-bold text-red-700">満席</span>
+                                @endif
+                            </span>
+                            @if ($row['reservationStatus'] === 'before')
+                                <span class="rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold text-yellow-800">受付前</span>
+                            @elseif ($row['reservationStatus'] === 'closed')
+                                <span class="rounded-full bg-gray-200 px-3 py-1 text-xs font-bold text-gray-600">受付終了</span>
+                            @endif
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </section>
 </div>
 
 @endsection
