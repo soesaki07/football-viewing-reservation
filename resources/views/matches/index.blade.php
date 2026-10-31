@@ -40,7 +40,7 @@
             <option value="">すべての大会</option>
             @foreach ($competitions as $competitionOption)
                 <option value="{{ $competitionOption->code }}" @selected($isSearching && $competitionOption->code === $searchParams['competition'])>
-                    {{ $competitionOption->name }}
+                    {{ $competitionOption->displayName() }}
                 </option>
             @endforeach
         </select>

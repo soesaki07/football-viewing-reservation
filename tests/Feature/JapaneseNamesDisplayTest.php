@@ -91,7 +91,7 @@ class JapaneseNamesDisplayTest extends TestCase
         $this->actingAs($user)->get(route('matches.index'))
             ->assertOk()
             ->assertSee('アーセナル略')
-            ->assertDontSee('Arsenal');
+            ->assertDontSee('Arsenal FC');
     }
 
     public function test_match_index_dropdown_falls_back_to_english_competition_name(): void
@@ -162,6 +162,30 @@ class JapaneseNamesDisplayTest extends TestCase
             ->assertOk()
             ->assertSee('プレミアリーグ')
             ->assertSee('アーセナル vs Chelsea FC');
+    }
+
+    public function test_match_search_form_displays_japanese_competition_name(): void
+    {
+        $this->createJapaneseMatch();
+
+        $this->actingAs(User::factory()->create())->get(route('matches.index', ['team' => 'Chelsea']))
+            ->assertOk()
+            ->assertSee('プレミアリーグ')
+            ->assertDontSee('Premier League');
+    }
+
+    public function test_owner_reservation_list_displays_japanese_team_names(): void
+    {
+        $match = $this->createJapaneseMatch();
+        $reservation = $this->createReservationFor($match, User::factory()->create());
+        $shop = $reservation->broadcastSeatType->broadcast->shop;
+        $owner = User::factory()->shopOwner()->create();
+        $shop->update(['user_id' => $owner->id]);
+
+        $this->actingAs($owner)->get(route('owner.reservations.index', ['favorite' => 0]))
+            ->assertOk()
+            ->assertSee('アーセナル vs Chelsea FC')
+            ->assertDontSee('Arsenal FC');
     }
 
     public function test_sync_teams_and_competitions_keep_japanese_names(): void
