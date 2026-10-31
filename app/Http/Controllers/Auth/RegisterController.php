@@ -24,8 +24,10 @@ class RegisterController extends Controller
             'email' => $validated['email'],
             'date_of_birth' => $validated['date_of_birth'],
             'password' => $validated['password'],
-            'role' => 'user',
         ]);
+
+        // role は一括代入の対象外なので、明示的に user を設定する
+        $user->forceFill(['role' => 'user'])->save();
 
         Auth::login($user);
 

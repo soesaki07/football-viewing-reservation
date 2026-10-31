@@ -36,6 +36,15 @@ class RegisterTest extends TestCase
         $this->assertTrue(Hash::check('password123', $user->password));
     }
 
+    public function test_register_ignores_role_in_request(): void
+    {
+        $this->post('/register', $this->validPayload(['role' => 'admin']));
+
+        $user = User::where('email', 'taro@example.com')->first();
+        $this->assertNotNull($user);
+        $this->assertSame('user', $user->role);
+    }
+
     public function test_register_fails_with_duplicate_email(): void
     {
         User::factory()->create(['email' => 'taro@example.com']);
