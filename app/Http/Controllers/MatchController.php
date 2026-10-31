@@ -10,16 +10,49 @@ use App\Models\Reservation;
 use App\Models\Shop;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
 class MatchController extends Controller
 {
     public function index(Request $request): View
     {
-        $competitionCode = $request->input('competition', 'PL');
+        // 検索（日付・チーム名）。入力が不正なら検索せず、エラーを画面に出す
+        $searchValidator = Validator::make($request->query(), [
+            'date' => ['nullable', 'date_format:Y-m-d'],
+            'team' => ['nullable', 'string', 'max:50'],
+            'competition' => ['nullable', 'string', 'exists:competitions,code'],
+            'period' => ['nullable', 'string'],
+        ], [
+            'date.date_format' => '日付は YYYY-MM-DD の形式で正しい日付を指定してください。',
+            'team.max' => 'チーム名は50文字以内で入力してください。',
+            'team.string' => 'チーム名は文字列で入力してください。',
+            'competition.exists' => '選択した大会は存在しません。',
+        ]);
+        $searchErrors = $searchValidator->errors();
+        $isSearching = false;
+        $searchResults = null;
+        $searchParams = ['date' => '', 'team' => '', 'competition' => '', 'period' => 'upcoming'];
+        $showPeriodTabs = false;
+
+        if ($searchValidator->passes()) {
+            $searchParams['date'] = (string) $request->query('date', '');
+            $searchParams['team'] = trim((string) $request->query('team', ''));
+            $searchParams['competition'] = (string) $request->query('competition', '');
+            $searchParams['period'] = $request->query('period') === 'past' ? 'past' : 'upcoming';
+            $isSearching = $searchParams['date'] !== '' || $searchParams['team'] !== '';
+        }
+
+        if ($isSearching) {
+            $showPeriodTabs = $searchParams['date'] === '';
+            $searchResults = $this->searchMatches($searchParams, $request->query('page'));
+        }
+
+        $competitionCode = $request->input('competition') ?: 'PL';
         $matchDay = (int) $request->input('match_day', 1);
         $stage = $request->input('stage', '');
 
@@ -29,7 +62,7 @@ class MatchController extends Controller
         $matchDays = collect();
         $stages = collect();
         $isRegularSeasonOnly = true;
-        if ($competition) {
+        if ($competition && ! $isSearching) {
             $isRegularSeasonOnly = FootballMatch::where('competition_id', $competition->id)
                 ->where('stage', '!=', 'REGULAR_SEASON')
                 ->doesntExist();
@@ -70,7 +103,8 @@ class MatchController extends Controller
         $favoriteTeams = $user->favoriteTeams;
         $favoriteTeamIds = $favoriteTeams->pluck('id');
 
-        $favoriteTeamMatches = $favoriteTeams->map(function (Team $favoriteTeam) {
+        // 検索結果を出すときはお気に入りのブロックを出さないので、試合の取得は省く
+        $favoriteTeamMatches = $isSearching ? collect() : $favoriteTeams->map(function (Team $favoriteTeam) {
             $recentMatches = FootballMatch::with(['homeTeam', 'awayTeam', 'competition'])
                 ->where(function ($query) use ($favoriteTeam) {
                     $query->where('home_team_id', $favoriteTeam->id)
@@ -116,7 +150,47 @@ class MatchController extends Controller
             'showFavoriteOnly',
             'hasFavoriteTeams',
             'favoriteTeams',
+            'isSearching',
+            'searchResults',
+            'searchParams',
+            'searchErrors',
+            'showPeriodTabs',
         ));
+    }
+
+    /**
+     * 検索条件に合う試合を、1ページ20件で返す。
+     * 日付指定ありはその日の試合をキックオフの早い順に出す。日付なしのチーム検索は今後（早い順）／過去（新しい順）で分ける。
+     *
+     * @param  array{date: string, team: string, competition: string, period: string}  $params
+     * @return LengthAwarePaginator<int, FootballMatch>
+     */
+    private function searchMatches(array $params, mixed $pageInput): LengthAwarePaginator
+    {
+        $query = FootballMatch::with(['homeTeam', 'awayTeam', 'competition']);
+
+        if ($params['competition'] !== '') {
+            $query->whereRelation('competition', 'code', $params['competition']);
+        }
+        if ($params['team'] !== '') {
+            $query->involvingTeamLike($params['team']);
+        }
+
+        if ($params['date'] !== '') {
+            $query->kickoffOnJstDate($params['date'])->orderBy('kickoff_at')->orderBy('id');
+        } elseif ($params['period'] === 'past') {
+            $query->where('kickoff_at', '<', now())->orderByDesc('kickoff_at')->orderByDesc('id');
+        } else {
+            $query->where('kickoff_at', '>=', now())->orderBy('kickoff_at')->orderBy('id');
+        }
+
+        // 巨大なページ番号だと offset の計算が int の範囲を超えて 500 になるため、上限（1万ページ）を付ける
+        $page = 1;
+        if (is_string($pageInput) && ctype_digit($pageInput)) {
+            $page = strlen($pageInput) > 5 ? self::MAX_SEARCH_PAGE : min(max((int) $pageInput, 1), self::MAX_SEARCH_PAGE);
+        }
+
+        return $query->paginate(20, ['*'], 'page', $page)->withQueryString();
     }
 
     public function show(Request $request, int $id): View
@@ -142,6 +216,8 @@ class MatchController extends Controller
     /**
      * 放映店舗一覧の並び順の許可リスト（先頭が既定）。
      */
+    private const MAX_SEARCH_PAGE = 10000;
+
     private const BROADCAST_SORTS = ['seats', 'price', 'name'];
 
     /**

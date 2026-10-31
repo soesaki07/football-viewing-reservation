@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -118,6 +119,43 @@ class FootballMatch extends Model
     public function broadcasts(): HasMany
     {
         return $this->hasMany(Broadcast::class);
+    }
+
+    /**
+     * 日本時間（JST）の指定日にキックオフする試合に絞る。
+     * DB は UTC 保存なので、JST の 0:00:00〜23:59:59 を UTC に変換して比較する。
+     *
+     * @param  Builder<FootballMatch>  $query
+     */
+    public function scopeKickoffOnJstDate(Builder $query, string $date): void
+    {
+        $start = Carbon::createFromFormat('Y-m-d', $date, 'Asia/Tokyo')->startOfDay()->utc();
+        $end = $start->copy()->addDay();
+
+        $query->where('kickoff_at', '>=', $start)->where('kickoff_at', '<', $end);
+    }
+
+    /**
+     * ホームまたはアウェイのチームの正式名・略称・3文字コードに、キーワードが部分一致する試合に絞る。
+     * LIKE の特殊文字（% _）はエスケープし、入力がそのままワイルドカードにならないようにする。
+     *
+     * @param  Builder<FootballMatch>  $query
+     */
+    public function scopeInvolvingTeamLike(Builder $query, string $keyword): void
+    {
+        // エスケープ文字は ! を使う（MySQL と SQLite の両方で同じ書き方になる）
+        $pattern = '%'.strtr($keyword, ['!' => '!!', '%' => '!%', '_' => '!_']).'%';
+
+        $matchesKeyword = function ($teamQuery) use ($pattern) {
+            $teamQuery->whereRaw("name LIKE ? ESCAPE '!'", [$pattern])
+                ->orWhereRaw("short_name LIKE ? ESCAPE '!'", [$pattern])
+                ->orWhereRaw("tla LIKE ? ESCAPE '!'", [$pattern]);
+        };
+
+        $query->where(function ($group) use ($matchesKeyword) {
+            $group->whereHas('homeTeam', $matchesKeyword)
+                ->orWhereHas('awayTeam', $matchesKeyword);
+        });
     }
 
     /**
