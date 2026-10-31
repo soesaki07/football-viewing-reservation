@@ -155,8 +155,14 @@ Football-Data.org APIとの同期。
 - teams
 - football_matches
 
-将来的にArtisan Command化し、
-Laravel Schedulerによる定期同期を行う。
+Artisan Command（`app:sync-competitions` / `app:sync-teams` / `app:sync-football-matches`）化済み。
+Laravel Schedulerで以下の時刻（JST）に定期同期する（`routes/console.php`）。
+
+- 試合：1時間ごと（毎時0分）
+- 大会：毎日 3:30
+- チーム：毎日 3:40
+
+同じコマンドの多重起動は防止する。失敗時はログに記録する。
 
 ---
 
