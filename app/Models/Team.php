@@ -14,6 +14,8 @@ use Illuminate\Support\Carbon;
  * @property int $external_team_id
  * @property string $name
  * @property string|null $short_name
+ * @property string|null $name_ja
+ * @property string|null $short_name_ja
  * @property string|null $tla
  * @property string|null $crest_url
  * @property string|null $country_name
@@ -35,7 +37,9 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Team whereExternalTeamId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Team whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Team whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Team whereNameJa($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Team whereShortName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Team whereShortNameJa($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Team whereTla($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Team whereUpdatedAt($value)
  *
@@ -49,6 +53,8 @@ class Team extends Model
         'external_team_id',
         'name',
         'short_name',
+        'name_ja',
+        'short_name_ja',
         'tla',
         'crest_url',
         'country_name',
@@ -67,5 +73,21 @@ class Team extends Model
     public function favoritedByUsers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'favorite_teams')->withTimestamps();
+    }
+
+    /**
+     * 画面に出すチーム名。日本語名があれば日本語名、なければ英語名。
+     */
+    public function displayName(): string
+    {
+        return $this->name_ja ?? $this->name;
+    }
+
+    /**
+     * 画面に出す略称。日本語の略称、API の略称、チーム名（日本語優先）の順。
+     */
+    public function displayShortName(): string
+    {
+        return $this->short_name_ja ?? $this->short_name ?? $this->displayName();
     }
 }

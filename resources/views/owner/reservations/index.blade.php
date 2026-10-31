@@ -49,7 +49,7 @@
                 <option value="">すべての試合</option>
                 @foreach ($matchOptions as $matchOption)
                     <option value="{{ $matchOption->id }}" @selected($selectedMatchId === $matchOption->id)>
-                        {{ $matchOption->homeTeam->name }} vs {{ $matchOption->awayTeam->name }}（{{ $matchOption->kickoff_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}）
+                        {{ $matchOption->homeTeam->displayName() }} vs {{ $matchOption->awayTeam->displayName() }}（{{ $matchOption->kickoff_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}）
                     </option>
                 @endforeach
             </select>
@@ -81,7 +81,7 @@
                                 <td class="whitespace-nowrap px-4 py-3 font-bold tracking-widest text-pitch-950">{{ $reservation->reservation_code }}</td>
                                 <td class="whitespace-nowrap px-4 py-3">{{ $reservation->user->name }}</td>
                                 <td class="min-w-48 px-4 py-3">
-                                    <span class="font-bold text-pitch-950">{{ $match->homeTeam->name }} vs {{ $match->awayTeam->name }}</span><br>
+                                    <span class="font-bold text-pitch-950">{{ $match->homeTeam->displayName() }} vs {{ $match->awayTeam->displayName() }}</span><br>
                                     <span class="whitespace-nowrap text-xs">{{ $match->kickoff_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}</span>
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-3">{{ $reservation->broadcastSeatType->seatType->name }}</td>
