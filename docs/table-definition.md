@@ -327,6 +327,7 @@ total_price
 
 - **在庫（残席）の算出方法**：`残席 = broadcast_seat_types.capacity − 対象broadcast_seat_typeに紐づく status = confirmed の reservations の人数合計`。`cancelled` / `no_show` の予約は残席計算から除外する。
 - **ロック方法**：予約作成時は対象の `broadcast_seat_types` 行を `lockForUpdate()` で行ロックしたうえで残席を算出し、定員内であれば `reservations` をINSERTしてから `confirmed` 状態で確定する。
+- **1試合1件**：同じユーザーは、同じ試合（`football_matches`）について店舗をまたいで `confirmed` の予約を1件までとする。同じユーザーの同時予約を直列化するため、先に予約するユーザーの `users` 行を `lockForUpdate()` でロックしてから `broadcast_seat_types` 行をロックする（ロックの順番は常に users → broadcast_seat_types）。
 
 ---
 

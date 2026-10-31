@@ -106,4 +106,14 @@ class Reservation extends Model
     {
         $query->where('status', self::STATUS_CONFIRMED);
     }
+
+    /**
+     * 指定した試合の放映（店舗を問わない）に対する予約に絞り込む。
+     *
+     * @param  Builder<Reservation>  $query
+     */
+    public function scopeForFootballMatch(Builder $query, int $footballMatchId): void
+    {
+        $query->whereRelation('broadcastSeatType.broadcast', 'football_match_id', $footballMatchId);
+    }
 }

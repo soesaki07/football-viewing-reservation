@@ -16,15 +16,21 @@ class ReservationService
 
     private const CODE_LENGTH = 8;
 
+    public const ALREADY_RESERVED_MESSAGE = 'この試合はすでに予約済みです。';
+
     /**
      * 予約を確定する。金額は確定時点の価格からここで計算する。
-     * トランザクション内で放映の座席種別をロックし、条件と残席を再確認してから予約を作る。
+     * トランザクション内でユーザー → 放映の座席種別の順にロックし、条件と残席を再確認してから予約を作る。
      *
      * @throws ReservationException 予約できない条件に当てはまったとき
      */
     public function reserve(User $user, Broadcast $broadcast, int $broadcastSeatTypeId, int $numberOfPeople, ?string $customerNote): Reservation
     {
         return DB::transaction(function () use ($user, $broadcast, $broadcastSeatTypeId, $numberOfPeople, $customerNote) {
+            // 同じユーザーが同じ試合の別の店舗へ同時に予約するのを直列化するため、ユーザーの行を先にロックする
+            // （ロックの順番は常に「users → broadcast_seat_types」で固定し、デッドロックを避ける）
+            User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+
             // 同じ放映への同時予約・二重送信を直列化するため、放映の座席種別の行を ID 順にロックする
             BroadcastSeatType::query()
                 ->where('broadcast_id', $broadcast->id)
@@ -47,13 +53,8 @@ class ReservationService
                 throw new ReservationException('残席が足りないため予約できません。');
             }
 
-            $alreadyReserved = Reservation::query()
-                ->confirmed()
-                ->where('user_id', $user->id)
-                ->whereRelation('broadcastSeatType', 'broadcast_id', $broadcast->id)
-                ->exists();
-            if ($alreadyReserved) {
-                throw new ReservationException('この放映はすでに予約済みです。');
+            if ($this->hasReservedMatch($user, $broadcast->football_match_id)) {
+                throw new ReservationException(self::ALREADY_RESERVED_MESSAGE);
             }
 
             return Reservation::create([
@@ -68,6 +69,18 @@ class ReservationService
                 'customer_note' => $customerNote,
             ]);
         });
+    }
+
+    /**
+     * ユーザーが、この試合（どの店舗でも）に confirmed の予約を持っているか。
+     */
+    public function hasReservedMatch(User $user, int $footballMatchId): bool
+    {
+        return Reservation::query()
+            ->confirmed()
+            ->where('user_id', $user->id)
+            ->forFootballMatch($footballMatchId)
+            ->exists();
     }
 
     /**
