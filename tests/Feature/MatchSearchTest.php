@@ -102,6 +102,27 @@ class MatchSearchTest extends TestCase
         }
     }
 
+    public function test_team_search_matches_japanese_name_and_short_name(): void
+    {
+        $this->arsenal->update(['name_ja' => 'アーセナルFC', 'short_name_ja' => 'アーセナル']);
+        $this->chelsea->update(['short_name_ja' => 'チェルシー']);
+        $other = $this->makeTeam('Other FC', 'Other', 'OTH');
+        $home = $this->makeMatch($this->arsenal, $other, now()->addDays(2)->toDateTimeString());
+        $away = $this->makeMatch($other, $this->arsenal, now()->addDays(3)->toDateTimeString());
+        $chelsea = $this->makeMatch($this->chelsea, $other, now()->addDays(4)->toDateTimeString());
+
+        // 日本語の正式名の一部、略称
+        foreach (['アーセナ', 'ナルFC', 'アーセナル'] as $keyword) {
+            $ids = $this->listedIds($this->get(route('matches.index', ['team' => $keyword]))->getContent());
+            $this->assertSame([$home->id, $away->id], $ids, $keyword);
+        }
+
+        // 日本語の略称のみ持つチーム、日本語名がないチームは英語名でヒットする
+        $this->assertSame([$chelsea->id], $this->listedIds($this->get(route('matches.index', ['team' => 'チェルシー']))->getContent()));
+        $this->assertSame([$chelsea->id], $this->listedIds($this->get(route('matches.index', ['team' => 'Chelsea']))->getContent()));
+        $this->assertSame([], $this->listedIds($this->get(route('matches.index', ['team' => 'マンチェスター']))->getContent()));
+    }
+
     public function test_like_wildcards_in_team_are_escaped(): void
     {
         $other = $this->makeTeam('Other FC', 'Other', 'OTH');

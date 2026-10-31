@@ -16,7 +16,7 @@ class FavoriteTeamController extends Controller
     public function selectFavoriteTeams(Request $request): View
     {
         $user = Auth::user();
-        $competitions = Competition::all();
+        $competitions = Competition::orderByRaw('COALESCE(name_ja, name)')->orderBy('id')->get();
         $competitionCode = $request->input('competition', 'PL');
 
         $teamCompetitionCodes = [];
@@ -36,7 +36,7 @@ class FavoriteTeamController extends Controller
             }
         }
 
-        $teams = Team::whereIn('id', array_keys($teamCompetitionCodes))->orderBy('name')->get();
+        $teams = Team::whereIn('id', array_keys($teamCompetitionCodes))->orderByRaw('COALESCE(name_ja, name)')->orderBy('id')->get();
 
         $favoriteTeamIds = $user->favoriteTeams->pluck('id');
         $hasFavoriteTeams = $favoriteTeamIds->isNotEmpty();

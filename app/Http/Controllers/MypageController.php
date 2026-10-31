@@ -34,7 +34,7 @@ class MypageController extends Controller
             ->orderByDesc('reservations.id')
             ->get();
 
-        $favoriteTeams = $user->favoriteTeams()->orderBy('teams.name')->get();
+        $favoriteTeams = $user->favoriteTeams()->orderByRaw('COALESCE(teams.name_ja, teams.name)')->orderBy('teams.id')->get();
         $hasFavoriteTeams = $favoriteTeams->isNotEmpty();
         $showFavoriteOnly = $hasFavoriteTeams && $request->boolean('favorite', true);
 

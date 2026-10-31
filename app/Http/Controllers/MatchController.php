@@ -96,7 +96,7 @@ class MatchController extends Controller
             }
         }
 
-        $competitions = Competition::orderBy('name')->get();
+        $competitions = Competition::orderByRaw('COALESCE(name_ja, name)')->orderBy('id')->get();
 
         /** @var User $user */
         $user = Auth::user();
