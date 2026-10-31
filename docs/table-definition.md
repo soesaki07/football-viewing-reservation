@@ -63,6 +63,7 @@ Football-Data.orgから取得する大会情報。
 | code | VARCHAR | 大会コード・UNIQUE |
 | type | VARCHAR | NULL可・大会種別 |
 | name | VARCHAR | 大会名 |
+| name_ja | VARCHAR | NULL可・大会名の日本語表記。APIからは取れないので、`app:import-japanese-names` で対応表（`database/data/competition_names_ja.csv`）から入れる。同期では上書きしない。画面では日本語名があれば日本語名、なければ`name`を出す |
 | area_name | VARCHAR | NULL可・開催エリア名（国名の場合も、"World"等の地域名の場合もある） |
 | emblem_url | VARCHAR | NULL可・大会ロゴ |
 | is_active | BOOLEAN | 大会が有効かどうか（APIに存在する大会は常にtrue） |
@@ -88,6 +89,8 @@ Football-Data.orgから取得するクラブ情報。
 | external_team_id | BIGINT | API側チームID・UNIQUE |
 | name | VARCHAR | チーム名 |
 | short_name | VARCHAR | NULL可 |
+| name_ja | VARCHAR | NULL可・チーム名の日本語表記。APIからは取れないので、`app:import-japanese-names` で対応表（`database/data/team_names_ja.csv`）から入れる。同期では上書きしない。画面では日本語名があれば日本語名、なければ`name`を出す |
+| short_name_ja | VARCHAR(100) | NULL可・略称の日本語表記（入れ方・同期の扱いは`name_ja`と同じ）。画面では`short_name_ja`→`short_name`→チーム名の順で出す。`tla`は英語のまま |
 | tla | VARCHAR | NULL可・略称 |
 | crest_url | VARCHAR | NULL可・エンブレム |
 | country_name | VARCHAR(100) | NULL可・国名 |

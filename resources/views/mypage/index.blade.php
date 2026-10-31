@@ -35,7 +35,7 @@
             @else
                 <ul class="list-inside list-disc space-y-1">
                     @foreach ($favoriteTeams as $team)
-                        <li>{{ $team->name }}</li>
+                        <li>{{ $team->displayName() }}</li>
                     @endforeach
                 </ul>
             @endif

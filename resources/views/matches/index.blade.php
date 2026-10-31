@@ -19,7 +19,7 @@
                 @if ($favoriteTeam->crest_url)
                     <img src="{{ $favoriteTeam->crest_url }}" alt="" class="h-5 w-5 object-contain">
                 @endif
-                {{ $favoriteTeam->short_name ?? $favoriteTeam->name }}
+                {{ $favoriteTeam->displayShortName() }}
             </span>
         @endforeach
     </div>
@@ -30,7 +30,7 @@
                 @if ($group['team']->crest_url)
                     <img src="{{ $group['team']->crest_url }}" alt="" class="h-6 w-6 object-contain">
                 @endif
-                {{ $group['team']->short_name ?? $group['team']->name }}
+                {{ $group['team']->displayShortName() }}
             </h3>
 
             <h4 class="mb-2 text-xs font-bold tracking-wide text-pitch-500 uppercase">消化試合</h4>
@@ -69,7 +69,7 @@
                     class="rounded-lg border-0 bg-white px-3 py-2 text-sm font-medium text-pitch-950 shadow-inner focus:ring-2 focus:ring-gold-500 focus:outline-none">
                 @foreach ($competitions as $competitionOption)
                     <option value="{{ $competitionOption->code }}" @selected($competitionOption->code === $competitionCode)>
-                        {{ $competitionOption->name }}
+                        {{ $competitionOption->displayName() }}
                     </option>
                 @endforeach
             </select>

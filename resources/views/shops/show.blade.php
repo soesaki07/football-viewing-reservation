@@ -97,8 +97,8 @@
                         <li>
                             <a href="{{ route('matches.show', $footballMatch->id) }}" class="flex flex-col gap-1 py-3 transition hover:text-gold-500 sm:flex-row sm:items-center sm:gap-4">
                                 <span class="shrink-0 text-sm text-pitch-500">{{ $footballMatch->kickoff_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}</span>
-                                <span class="shrink-0 text-xs font-bold text-pitch-700">{{ $footballMatch->competition->name }}</span>
-                                <span class="font-semibold">{{ $footballMatch->homeTeam->name }} vs {{ $footballMatch->awayTeam->name }}</span>
+                                <span class="shrink-0 text-xs font-bold text-pitch-700">{{ $footballMatch->competition->displayName() }}</span>
+                                <span class="font-semibold">{{ $footballMatch->homeTeam->displayName() }} vs {{ $footballMatch->awayTeam->displayName() }}</span>
                             </a>
                         </li>
                     @endforeach

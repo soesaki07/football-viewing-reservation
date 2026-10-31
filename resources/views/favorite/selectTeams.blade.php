@@ -27,7 +27,7 @@
             @foreach ($competitions as $competition)
                 <option
                     value="{{ $competition->code }}" @selected($competition->code === $competitionCode)>
-                    {{ $competition->name }}
+                    {{ $competition->displayName() }}
                 </option>
             @endforeach
         </select>
@@ -46,7 +46,7 @@
                            @checked($favoriteTeamIds->contains($team->id))
                            class="h-5 w-5 shrink-0 accent-gold-500">
                     <img src="{{ $team->crest_url }}" alt="" class="h-10 w-10 shrink-0 object-contain">
-                    <span class="truncate text-sm font-bold text-pitch-950">{{ $team->short_name ?? $team->name }}</span>
+                    <span class="truncate text-sm font-bold text-pitch-950">{{ $team->displayShortName() }}</span>
                 </label>
             @endforeach
         </div>

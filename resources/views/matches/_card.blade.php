@@ -6,7 +6,7 @@
             @if ($footballMatch->homeTeam->crest_url)
                 <img src="{{ $footballMatch->homeTeam->crest_url }}" alt="" class="h-6 w-6 shrink-0 object-contain">
             @endif
-            <span class="truncate">{{ $footballMatch->homeTeam->tla ?? $footballMatch->homeTeam->short_name ?? $footballMatch->homeTeam->name }}</span>
+            <span class="truncate">{{ $footballMatch->homeTeam->tla ?? $footballMatch->homeTeam->displayShortName() }}</span>
         </span>
 
         @if (! is_null($footballMatch->home_score) && ! is_null($footballMatch->away_score))
@@ -18,7 +18,7 @@
         @endif
 
         <span class="flex min-w-0 items-center justify-end gap-2">
-            <span class="truncate text-right">{{ $footballMatch->awayTeam->tla ?? $footballMatch->awayTeam->short_name ?? $footballMatch->awayTeam->name }}</span>
+            <span class="truncate text-right">{{ $footballMatch->awayTeam->tla ?? $footballMatch->awayTeam->displayShortName() }}</span>
             @if ($footballMatch->awayTeam->crest_url)
                 <img src="{{ $footballMatch->awayTeam->crest_url }}" alt="" class="h-6 w-6 shrink-0 object-contain">
             @endif

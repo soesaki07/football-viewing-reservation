@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
  * @property string $code
  * @property string|null $type
  * @property string $name
+ * @property string|null $name_ja
  * @property string|null $area_name
  * @property string|null $emblem_url
  * @property int $is_active
@@ -33,6 +34,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Competition whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Competition whereIsActive($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Competition whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Competition whereNameJa($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Competition whereType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Competition whereUpdatedAt($value)
  *
@@ -47,6 +49,7 @@ class Competition extends Model
         'code',
         'type',
         'name',
+        'name_ja',
         'area_name',
         'emblem_url',
         'is_active',
@@ -56,5 +59,13 @@ class Competition extends Model
     public function footballMatches(): HasMany
     {
         return $this->hasMany(FootballMatch::class);
+    }
+
+    /**
+     * 画面に出す大会名。日本語名があれば日本語名、なければ英語名。
+     */
+    public function displayName(): string
+    {
+        return $this->name_ja ?? $this->name;
     }
 }

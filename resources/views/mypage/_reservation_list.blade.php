@@ -10,7 +10,7 @@
             @endphp
             <li class="rounded-xl border border-pitch-100 bg-white p-5 shadow-sm">
                 <div class="mb-2 flex flex-wrap items-center gap-3">
-                    <span class="font-bold text-pitch-950">{{ $match->homeTeam->name }} vs {{ $match->awayTeam->name }}</span>
+                    <span class="font-bold text-pitch-950">{{ $match->homeTeam->displayName() }} vs {{ $match->awayTeam->displayName() }}</span>
                     <span class="rounded-full bg-pitch-100 px-3 py-1 text-xs font-bold text-pitch-950">{{ $reservation->statusLabel() }}</span>
                 </div>
                 <dl class="grid gap-1 text-sm text-pitch-700 sm:grid-cols-[10rem_1fr]">
