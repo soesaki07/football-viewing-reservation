@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -48,6 +49,8 @@ use Illuminate\Support\Carbon;
  */
 class Reservation extends Model
 {
+    public const STATUS_CONFIRMED = 'confirmed';
+
     protected $fillable = [
         'reservation_code',
         'user_id',
@@ -71,5 +74,15 @@ class Reservation extends Model
     public function broadcastSeatType(): BelongsTo
     {
         return $this->belongsTo(BroadcastSeatType::class);
+    }
+
+    /**
+     * 確定済み（席を押さえている）予約に絞り込む。cancelled / no_show / visited は含まない。
+     *
+     * @param  Builder<Reservation>  $query
+     */
+    public function scopeConfirmed(Builder $query): void
+    {
+        $query->where('status', self::STATUS_CONFIRMED);
     }
 }

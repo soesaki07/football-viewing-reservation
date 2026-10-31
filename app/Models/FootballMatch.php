@@ -119,4 +119,14 @@ class FootballMatch extends Model
     {
         return $this->hasMany(Broadcast::class);
     }
+
+    /**
+     * 試合が終了したか。status が終了系、またはキックオフから3時間以上経過している場合。
+     * 試合データの同期が遅れて status が古いままでも終了扱いにするため、経過時間でも判定する。
+     */
+    public function isFinished(): bool
+    {
+        return in_array($this->status, ['FINISHED', 'AWARDED', 'CANCELLED'], true)
+            || $this->kickoff_at->copy()->addHours(3)->lte(now());
+    }
 }

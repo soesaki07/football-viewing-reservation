@@ -77,6 +77,16 @@ class Broadcast extends Model
     }
 
     /**
+     * 有効な座席種別（放映の座席種別・店舗の座席種別の両方が有効）だけの一覧。
+     *
+     * @return HasMany<BroadcastSeatType, $this>
+     */
+    public function activeBroadcastSeatTypes(): HasMany
+    {
+        return $this->hasMany(BroadcastSeatType::class)->active();
+    }
+
+    /**
      * 公開中の放映に絞り込む。
      *
      * @param  Builder<Broadcast>  $query

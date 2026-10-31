@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -65,5 +66,26 @@ class BroadcastSeatType extends Model
     public function reservations(): HasMany
     {
         return $this->hasMany(Reservation::class);
+    }
+
+    /**
+     * 確定済みの予約だけの一覧（残席の計算用）。
+     *
+     * @return HasMany<Reservation, $this>
+     */
+    public function confirmedReservations(): HasMany
+    {
+        return $this->hasMany(Reservation::class)->confirmed();
+    }
+
+    /**
+     * 有効な座席種別（放映の座席種別・店舗の座席種別の両方が有効）に絞り込む。
+     *
+     * @param  Builder<BroadcastSeatType>  $query
+     */
+    public function scopeActive(Builder $query): void
+    {
+        $query->where('broadcast_seat_types.is_active', true)
+            ->whereHas('seatType', fn (Builder $seatTypeQuery) => $seatTypeQuery->where('is_active', true));
     }
 }
