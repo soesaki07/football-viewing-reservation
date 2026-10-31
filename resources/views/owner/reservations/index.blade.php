@@ -10,6 +10,16 @@
     @if ($shops->isEmpty())
         <p class="rounded-xl border border-pitch-100 bg-white p-6 text-sm text-pitch-700">店舗が登録されていません。</p>
     @else
+        @if (session('success'))
+            <p class="rounded-xl border border-pitch-100 bg-pitch-50 p-4 text-sm font-bold text-pitch-950" role="status">{{ session('success') }}</p>
+        @endif
+        @if (session('error'))
+            <p class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700" role="alert">{{ session('error') }}</p>
+        @endif
+        @error('status')
+            <p class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700" role="alert">{{ $message }}</p>
+        @enderror
+
         {{-- 店舗の切り替え（2店舗以上のときだけ） --}}
         @if ($shops->count() >= 2)
             <nav class="flex flex-wrap gap-2" aria-label="店舗の切り替え">
@@ -86,7 +96,29 @@
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-3">{{ $reservation->broadcastSeatType->seatType->name }}</td>
                                 <td class="whitespace-nowrap px-4 py-3">{{ $reservation->number_of_people }}人</td>
-                                <td class="whitespace-nowrap px-4 py-3"><span class="rounded-full bg-pitch-100 px-3 py-1 text-xs font-bold text-pitch-950">{{ $reservation->statusLabel() }}</span></td>
+                                <td class="whitespace-nowrap px-4 py-3"><span class="rounded-full bg-pitch-100 px-3 py-1 text-xs font-bold text-pitch-950">{{ $reservation->statusLabel() }}</span>
+                                    @foreach ($reservation->availableVisitStatusChanges() as $nextStatus)
+                                        @php
+                                            $buttonLabel = match (true) {
+                                                $nextStatus === 'visited' && $reservation->status === 'no_show' => '来店済みに変更',
+                                                $nextStatus === 'no_show' && $reservation->status === 'visited' => '来店なしに変更',
+                                                $nextStatus === 'visited' => '来店済み',
+                                                default => '来店なし',
+                                            };
+                                        @endphp
+                                        <form method="POST" action="{{ route('owner.reservations.visit-status', $reservation) }}" data-confirm="予約 {{ $reservation->reservation_code }} を{{ $nextStatus === 'visited' ? '来店済み' : '来店なし' }}にしますか？" class="ml-2 inline">
+                                            @csrf
+                                            @method('PATCH')
+                                            <input type="hidden" name="status" value="{{ $nextStatus }}">
+                                            <input type="hidden" name="period" value="{{ $period }}">
+                                            @if ($selectedMatchId !== null)
+                                                <input type="hidden" name="match" value="{{ $selectedMatchId }}">
+                                            @endif
+                                            <input type="hidden" name="page" value="{{ $reservations->currentPage() }}">
+                                            <button type="submit" class="rounded-md border border-pitch-100 bg-white px-3 py-1 text-xs font-bold text-pitch-700 transition hover:text-gold-500">{{ $buttonLabel }}</button>
+                                        </form>
+                                    @endforeach
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>

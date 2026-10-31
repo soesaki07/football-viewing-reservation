@@ -2,15 +2,19 @@
 
 namespace App\Http\Controllers\Owner;
 
+use App\Exceptions\ReservationException;
 use App\Http\Controllers\Controller;
 use App\Models\FootballMatch;
 use App\Models\Reservation;
 use App\Models\Shop;
 use App\Models\User;
+use App\Services\ReservationService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ReservationController extends Controller
@@ -94,5 +98,53 @@ class ReservationController extends Controller
             'hasFavoriteTeams',
             'showFavoriteOnly',
         ));
+    }
+
+    /**
+     * 予約の来店状態（来店済み・来店なし）を更新する。自分の店舗の予約だけが対象（他店は 404）。
+     * 一覧へ戻す（店舗・期間・試合・ページの条件は保つ。外部の URL へは飛ばさない）。
+     */
+    public function updateVisitStatus(Request $request, Reservation $reservation, ReservationService $reservationService): RedirectResponse
+    {
+        // 他店の予約の存在を隠すため、入力の検証より先に認可する
+        Gate::authorize('updateVisitStatus', $reservation);
+
+        $validated = $request->validate([
+            'status' => ['required', 'string', Rule::in([Reservation::STATUS_VISITED, Reservation::STATUS_NO_SHOW])],
+        ]);
+
+        $redirect = redirect()->route('owner.reservations.index', $this->listConditions($request, $reservation));
+
+        try {
+            $reservationService->updateVisitStatus($reservation, $validated['status']);
+        } catch (ReservationException $e) {
+            return $redirect->with('error', $e->getMessage());
+        }
+
+        $label = $validated['status'] === Reservation::STATUS_VISITED ? '来店済み' : '来店なし';
+
+        return $redirect->with('success', "予約 {$reservation->reservation_code} を{$label}にしました。");
+    }
+
+    /**
+     * 一覧へ戻るときの条件。店舗は予約から決め、期間・試合・ページは形式を確かめた値だけを使う。
+     *
+     * @return array<string, int|string>
+     */
+    private function listConditions(Request $request, Reservation $reservation): array
+    {
+        $conditions = [
+            'shop' => $reservation->broadcastSeatType->broadcast->shop_id,
+            'period' => $request->input('period') === self::PERIOD_PAST ? self::PERIOD_PAST : self::PERIOD_UPCOMING,
+        ];
+
+        foreach (['match', 'page'] as $key) {
+            $value = filter_var($request->input($key), FILTER_VALIDATE_INT);
+            if ($value !== false && $value >= 1) {
+                $conditions[$key] = $value;
+            }
+        }
+
+        return $conditions;
     }
 }
