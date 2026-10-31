@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\FavoriteTeamController;
 use App\Http\Controllers\MatchController;
 use App\Http\Controllers\MypageController;
+use App\Http\Controllers\Owner\ReservationController as OwnerReservationController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ShopController;
 use App\Services\FootballDataService;
@@ -42,4 +43,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/reservations/{reservation}/complete', [ReservationController::class, 'complete'])->name('reservations.complete');
     Route::get('/select/teams', [FavoriteTeamController::class, 'selectFavoriteTeams'])->name('select.teams');
     Route::put('/select/teams/save', [FavoriteTeamController::class, 'saveFavoriteTeams'])->name('save.teams');
+
+    // 店舗オーナー向け（shop_owner 以外は 403）
+    Route::middleware('can:access-owner-area')->prefix('owner')->name('owner.')->group(function () {
+        Route::get('/reservations', [OwnerReservationController::class, 'index'])->name('reservations.index');
+    });
 });

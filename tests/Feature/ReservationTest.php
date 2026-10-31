@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\ReservationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\CreatesFootballMatches;
 use Tests\TestCase;
@@ -666,6 +667,25 @@ class ReservationTest extends TestCase
             ->assertSessionHas('error', '予約コードの発行に失敗しました。もう一度お試しください。');
 
         $this->assertSame(1, Reservation::count());
+    }
+
+    public function test_code_failure_after_three_collisions_is_logged_without_code(): void
+    {
+        $existing = $this->addReservation($this->seatType, 1);
+        $code = $existing->reservation_code;
+        $this->fakeReservationCodes([$code, $code, $code], 3);
+
+        Log::shouldReceive('warning')
+            ->once()
+            ->withArgs(function (string $message, array $context) use ($code) {
+                return $message === '予約コードの発行に3回失敗しました。'
+                    && $context['attempts'] === 3
+                    && $context['user_id'] === $this->user->id
+                    && $context['broadcast_seat_type_id'] === $this->seatType->id
+                    && ! str_contains(json_encode($context), $code);
+            });
+
+        $this->confirmAndStore()->assertSessionHas('error');
     }
 
     // ---- 試合詳細の「予約済み」 ----
