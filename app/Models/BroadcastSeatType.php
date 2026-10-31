@@ -79,6 +79,20 @@ class BroadcastSeatType extends Model
     }
 
     /**
+     * 残席（定員 − confirmed の予約の人数合計。0 未満にしない）。
+     * withSum で confirmed_people を取得済みならそれを使い、なければ DB から数える。
+     */
+    public function remainingSeats(): int
+    {
+        // 予約が0件だと withSum の結果は null になるので、キーの有無で取得済みかを判断する
+        $confirmedPeople = array_key_exists('confirmed_people', $this->attributes)
+            ? $this->attributes['confirmed_people']
+            : $this->confirmedReservations()->sum('number_of_people');
+
+        return max(0, $this->capacity - (int) $confirmedPeople);
+    }
+
+    /**
      * 有効な座席種別（放映の座席種別・店舗の座席種別の両方が有効）に絞り込む。
      *
      * @param  Builder<BroadcastSeatType>  $query

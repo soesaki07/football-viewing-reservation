@@ -10,7 +10,6 @@ use App\Models\Shop;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -148,7 +147,7 @@ class MatchController extends Controller
      * 試合を放映する店舗の一覧（1店舗＝1行）を並び順どおりに返す。
      * 放映・店舗・座席種別・予約の合計をまとめて取得し、店舗数が増えてもクエリ数が増えないようにする。
      *
-     * @return Collection<int, array{shop: Shop, minPrice: int, seats: int, reservationStatus: string|null}>
+     * @return Collection<int, array{shop: Shop, minPrice: int, seats: int, reservationStatus: string|null, broadcastId: int, canReserve: bool}>
      */
     private function broadcastShops(FootballMatch $footballMatch, string $sort): Collection
     {
@@ -170,14 +169,21 @@ class MatchController extends Controller
                 continue;
             }
 
+            // 定員を超えた予約データがあっても、残席はマイナスにしない
+            $seats = $broadcast->activeBroadcastSeatTypes->sum(
+                fn (BroadcastSeatType $seatType) => $seatType->remainingSeats()
+            );
+            // 試合は取得済みのものを使い回す（放映ごとに読み込み直さない）
+            $broadcast->setRelation('footballMatch', $footballMatch);
+            $canReserve = $broadcast->isReservable();
+
             $rows->push([
                 'shop' => $shop,
                 'minPrice' => (int) $broadcast->activeBroadcastSeatTypes->min('price'),
-                // 定員を超えた予約データがあっても、残席はマイナスにしない
-                'seats' => $broadcast->activeBroadcastSeatTypes->sum(
-                    fn (BroadcastSeatType $seatType) => max(0, $seatType->capacity - (int) $seatType->getAttribute('confirmed_people'))
-                ),
-                'reservationStatus' => $this->reservationStatus($broadcast),
+                'seats' => $seats,
+                'reservationStatus' => $broadcast->reservationStatus(),
+                'broadcastId' => $broadcast->id,
+                'canReserve' => $canReserve && $seats > 0,
             ]);
         }
 
@@ -191,22 +197,5 @@ class MatchController extends Controller
 
             return $primary ?: ($a['shop']->name <=> $b['shop']->name) ?: ($a['shop']->id <=> $b['shop']->id);
         })->values();
-    }
-
-    /**
-     * 予約の受付状態。開始前は 'before'、終了後は 'closed'、期間内（null は制限なし）は null。
-     */
-    private function reservationStatus(Broadcast $broadcast): ?string
-    {
-        $now = now();
-
-        if ($broadcast->reservation_start_at !== null && Carbon::parse($broadcast->reservation_start_at)->gt($now)) {
-            return 'before';
-        }
-        if ($broadcast->reservation_end_at !== null && Carbon::parse($broadcast->reservation_end_at)->lt($now)) {
-            return 'closed';
-        }
-
-        return null;
     }
 }

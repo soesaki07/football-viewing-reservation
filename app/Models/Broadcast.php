@@ -95,4 +95,36 @@ class Broadcast extends Model
     {
         $query->where('status', self::STATUS_PUBLISHED);
     }
+
+    /**
+     * 予約の受付状態。開始前は 'before'、終了後は 'closed'、期間内（null は制限なし）は null。
+     */
+    public function reservationStatus(): ?string
+    {
+        $now = now();
+
+        if ($this->reservation_start_at !== null && Carbon::parse($this->reservation_start_at)->gt($now)) {
+            return 'before';
+        }
+        if ($this->reservation_end_at !== null && Carbon::parse($this->reservation_end_at)->lt($now)) {
+            return 'closed';
+        }
+
+        return null;
+    }
+
+    /**
+     * 予約できる放映か。放映・店舗が公開中（店舗は削除されていない）、試合が終了していない、受付期間中の全てを満たす。
+     * 座席種別・残席・二重予約はここでは見ない。
+     */
+    public function isReservable(): bool
+    {
+        $shop = $this->shop;
+
+        return $this->status === self::STATUS_PUBLISHED
+            && $shop !== null
+            && $shop->isPublished()
+            && ! $this->footballMatch->isFinished()
+            && $this->reservationStatus() === null;
+    }
 }
