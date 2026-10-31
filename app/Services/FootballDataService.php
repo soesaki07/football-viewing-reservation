@@ -56,7 +56,7 @@ class FootballDataService
                 }
             }
         } catch (\Exception $e) {
-            Log::error('大会情報の同期に失敗しました', ['exception' => $e]);
+            Log::error('チーム情報の同期に失敗しました', ['exception' => $e]);
         }
 
         return ['teams' => $teams];
