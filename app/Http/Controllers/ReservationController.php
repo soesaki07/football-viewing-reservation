@@ -137,7 +137,25 @@ class ReservationController extends Controller
         $broadcast = $reservation->broadcastSeatType->broadcast;
         $shop = $broadcast->shop;
 
-        return view('reservations.show', [...compact('reservation', 'broadcast', 'shop'), ...$this->navigation($request)]);
+        $canCancel = $reservation->isCancellable();
+
+        return view('reservations.show', [...compact('reservation', 'broadcast', 'shop', 'canCancel'), ...$this->navigation($request)]);
+    }
+
+    /**
+     * 予約キャンセル。本人の予約だけが対象（他人の予約は 404）。キャンセルできない場合はエラーメッセージ付きで詳細へ戻す。
+     */
+    public function cancel(Reservation $reservation, ReservationService $reservationService): RedirectResponse
+    {
+        Gate::authorize('view', $reservation);
+
+        try {
+            $reservationService->cancel($reservation);
+        } catch (ReservationException $e) {
+            return redirect()->route('reservations.show', $reservation)->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('reservations.show', $reservation)->with('success', '予約をキャンセルしました。');
     }
 
     /**

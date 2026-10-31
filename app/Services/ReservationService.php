@@ -19,6 +19,8 @@ class ReservationService
 
     public const ALREADY_RESERVED_MESSAGE = 'この試合はすでに予約済みです。';
 
+    public const NOT_CANCELLABLE_MESSAGE = 'この予約はキャンセルできません。';
+
     // 予約コードが重複したときに、新しいコードで作り直す最大回数
     private const MAX_CODE_ATTEMPTS = 3;
 
@@ -104,6 +106,31 @@ class ReservationService
         }
 
         throw new ReservationException('予約コードの発行に失敗しました。もう一度お試しください。');
+    }
+
+    /**
+     * 予約をキャンセルする。予約の行だけをロックし、ロック後の最新の状態でキャンセルできるかを再確認する。
+     * 予約の人数・金額などは変えず、status と cancelled_at だけを更新する（残席は confirmed の人数合計から自動で戻る）。
+     *
+     * @throws ReservationException キャンセルできない予約のとき
+     */
+    public function cancel(Reservation $reservation): Reservation
+    {
+        return DB::transaction(function () use ($reservation) {
+            // 二重送信・同時操作を直列化するため、予約の行をロックして読み直す
+            $locked = Reservation::query()->whereKey($reservation->id)->lockForUpdate()->firstOrFail();
+
+            if (! $locked->isCancellable()) {
+                throw new ReservationException(self::NOT_CANCELLABLE_MESSAGE);
+            }
+
+            $locked->update([
+                'status' => Reservation::STATUS_CANCELLED,
+                'cancelled_at' => now()->utc(),
+            ]);
+
+            return $locked;
+        });
     }
 
     /**

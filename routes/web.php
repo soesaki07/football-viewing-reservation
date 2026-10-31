@@ -38,6 +38,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/broadcasts/{broadcast}/reservations', [ReservationController::class, 'store'])->name('reservations.store');
     Route::get('/mypage', [MypageController::class, 'index'])->name('mypage');
     Route::get('/reservations/{reservation}', [ReservationController::class, 'show'])->name('reservations.show');
+    Route::patch('/reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
     Route::get('/reservations/{reservation}/complete', [ReservationController::class, 'complete'])->name('reservations.complete');
     Route::get('/select/teams', [FavoriteTeamController::class, 'selectFavoriteTeams'])->name('select.teams');
     Route::put('/select/teams/save', [FavoriteTeamController::class, 'saveFavoriteTeams'])->name('save.teams');
