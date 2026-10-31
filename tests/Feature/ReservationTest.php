@@ -618,6 +618,56 @@ class ReservationTest extends TestCase
             ->assertDontSee('予約する');
     }
 
+    // ---- 予約コードの重複 ----
+
+    /**
+     * generateReservationCode() が指定したコードを順に返し、ちょうど $times 回だけ呼ばれるようにする。
+     *
+     * @param  list<string>  $codes
+     */
+    private function fakeReservationCodes(array $codes, int $times): void
+    {
+        $this->partialMock(ReservationService::class, function ($mock) use ($codes, $times) {
+            $mock->shouldReceive('generateReservationCode')->times($times)->andReturnValues($codes);
+        });
+    }
+
+    public function test_reservation_code_collision_is_retried_with_new_code(): void
+    {
+        $existing = $this->addReservation($this->seatType, 1);
+        // 1回目は既存の予約と同じコード（存在確認をすり抜けて UNIQUE 違反になった想定）、2回目は新しいコード
+        $this->fakeReservationCodes([$existing->reservation_code, 'NEWCKDE2'], 2);
+
+        $this->confirmAndStore()->assertRedirect(route('reservations.complete', Reservation::where('user_id', $this->user->id)->sole()));
+
+        $this->assertSame('NEWCKDE2', Reservation::where('user_id', $this->user->id)->sole()->reservation_code);
+        $this->assertSame(2, Reservation::count());
+    }
+
+    public function test_reservation_succeeds_on_third_attempt_after_two_collisions(): void
+    {
+        $existing = $this->addReservation($this->seatType, 1);
+        $this->fakeReservationCodes([$existing->reservation_code, $existing->reservation_code, 'NEWCKDE3'], 3);
+
+        $this->confirmAndStore()->assertRedirect(route('reservations.complete', Reservation::where('user_id', $this->user->id)->sole()));
+
+        $this->assertSame('NEWCKDE3', Reservation::where('user_id', $this->user->id)->sole()->reservation_code);
+        $this->assertSame(2, Reservation::count());
+    }
+
+    public function test_reservation_fails_when_code_collides_three_times(): void
+    {
+        $existing = $this->addReservation($this->seatType, 1);
+        // 4つ目に新しいコードを用意しても、3回で打ち切るので使われない（呼び出しはちょうど3回）
+        $this->fakeReservationCodes([$existing->reservation_code, $existing->reservation_code, $existing->reservation_code, 'NEWCKDE4'], 3);
+
+        $this->confirmAndStore()
+            ->assertRedirect(route('reservations.create', $this->broadcast))
+            ->assertSessionHas('error', '予約コードの発行に失敗しました。もう一度お試しください。');
+
+        $this->assertSame(1, Reservation::count());
+    }
+
     // ---- 試合詳細の「予約済み」 ----
 
     public function test_match_show_displays_reserved_badge_and_hides_reserve_button_at_other_shops(): void
@@ -651,6 +701,27 @@ class ReservationTest extends TestCase
         $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
             ->assertDontSee('予約済み')
             ->assertSee('予約する');
+    }
+
+    #[DataProvider('nonConfirmedStatuses')]
+    public function test_match_show_ignores_visited_and_no_show_reservations(string $status): void
+    {
+        $this->addReservation($this->seatType, 1, $this->user)->update(['status' => $status]);
+
+        $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
+            ->assertDontSee('予約済み')
+            ->assertSee('予約する');
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function nonConfirmedStatuses(): array
+    {
+        return [
+            'visited' => [Reservation::STATUS_VISITED],
+            'no_show' => [Reservation::STATUS_NO_SHOW],
+        ];
     }
 
     public function test_match_show_ignores_reservation_of_other_match(): void

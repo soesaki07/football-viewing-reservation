@@ -153,15 +153,14 @@ class MatchController extends Controller
     private function broadcastShops(FootballMatch $footballMatch, string $sort, User $user): Collection
     {
         // ログインユーザーのこの試合の予約（confirmed、1件まで）を、放映の ID とあわせて1回のクエリで取得する
+        // 「この試合の confirmed の予約」の条件は、ReservationService::hasReservedMatch() と同じスコープで決める
         $reservation = Reservation::query()
-            ->toBase()
-            ->join('broadcast_seat_types', 'broadcast_seat_types.id', '=', 'reservations.broadcast_seat_type_id')
-            ->join('broadcasts', 'broadcasts.id', '=', 'broadcast_seat_types.broadcast_id')
-            ->where('reservations.status', Reservation::STATUS_CONFIRMED)
+            ->confirmed()
             ->where('reservations.user_id', $user->id)
-            ->where('broadcasts.football_match_id', $footballMatch->id)
+            ->forFootballMatch($footballMatch->id)
+            ->join('broadcast_seat_types', 'broadcast_seat_types.id', '=', 'reservations.broadcast_seat_type_id')
             ->orderBy('reservations.id')
-            ->first(['reservations.id', 'broadcasts.id as broadcast_id']);
+            ->first(['reservations.id', 'broadcast_seat_types.broadcast_id']);
         $broadcasts = Broadcast::query()
             ->where('football_match_id', $footballMatch->id)
             ->published()
@@ -196,7 +195,7 @@ class MatchController extends Controller
                 'broadcastId' => $broadcast->id,
                 // この試合を予約済みなら、どの店舗にも「予約する」を出さない
                 'canReserve' => $reservation === null && $canReserve && $seats > 0,
-                'reservationId' => $reservation !== null && (int) $reservation->broadcast_id === $broadcast->id ? (int) $reservation->id : null,
+                'reservationId' => $reservation !== null && (int) $reservation->getAttribute('broadcast_id') === $broadcast->id ? (int) $reservation->id : null,
             ]);
         }
 

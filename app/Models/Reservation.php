@@ -133,7 +133,8 @@ class Reservation extends Model
      */
     public function scopeConfirmed(Builder $query): void
     {
-        $query->where('status', self::STATUS_CONFIRMED);
+        // join で broadcasts など同名の status カラムがあるテーブルと一緒に使っても曖昧にならないよう、テーブル名で修飾する
+        $query->where($query->qualifyColumn('status'), self::STATUS_CONFIRMED);
     }
 
     /**
