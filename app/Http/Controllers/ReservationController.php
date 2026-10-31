@@ -22,10 +22,14 @@ class ReservationController extends Controller
     /**
      * 予約入力画面。確認画面から戻ってきたときは、セッションの入力値を初期値にする。
      */
-    public function create(Request $request, Broadcast $broadcast): View|RedirectResponse
+    public function create(Request $request, Broadcast $broadcast, ReservationService $reservationService): View|RedirectResponse
     {
         if (! $broadcast->isReservable()) {
             return $this->backToMatch($broadcast, $request->session()->get('error', 'この放映は現在予約できません。'));
+        }
+
+        if ($reservationService->hasReservedMatch($this->user(), $broadcast->football_match_id)) {
+            return $this->backToMatch($broadcast, ReservationService::ALREADY_RESERVED_MESSAGE);
         }
 
         $broadcast->load(['footballMatch.homeTeam', 'footballMatch.awayTeam', 'shop']);
@@ -38,8 +42,13 @@ class ReservationController extends Controller
     /**
      * 予約確認画面。入力値を検証してセッションに保存し、内容を表示する。
      */
-    public function confirm(ReservationRequest $request, Broadcast $broadcast): View
+    public function confirm(ReservationRequest $request, Broadcast $broadcast, ReservationService $reservationService): View|RedirectResponse
     {
+        // 放映が予約できるかどうかは ReservationRequest で確認済み
+        if ($reservationService->hasReservedMatch($this->user(), $broadcast->football_match_id)) {
+            return $this->backToMatch($broadcast, ReservationService::ALREADY_RESERVED_MESSAGE);
+        }
+
         $input = $request->safe()->only(['broadcast_seat_type_id', 'number_of_people', 'customer_note']);
         $request->session()->put($this->sessionKey($broadcast), $input);
 
@@ -123,6 +132,14 @@ class ReservationController extends Controller
             'hasFavoriteTeams' => $hasFavoriteTeams,
             'showFavoriteOnly' => $hasFavoriteTeams && $request->boolean('favorite', true),
         ];
+    }
+
+    private function user(): User
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        return $user;
     }
 
     private function backToMatch(Broadcast $broadcast, string $message): RedirectResponse

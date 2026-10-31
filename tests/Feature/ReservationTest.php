@@ -11,6 +11,7 @@ use App\Models\Shop;
 use App\Models\User;
 use App\Services\ReservationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\CreatesFootballMatches;
 use Tests\TestCase;
@@ -402,8 +403,93 @@ class ReservationTest extends TestCase
     {
         $this->confirmAndStore()->assertRedirect(route('reservations.complete', Reservation::sole()));
 
-        $this->confirmAndStore()->assertRedirect(route('reservations.create', $this->broadcast))->assertSessionHas('error');
+        // 確認画面の時点で試合詳細に戻される
+        $this->actingAs($this->user)->post(route('reservations.confirm', $this->broadcast), $this->input())
+            ->assertRedirect(route('matches.show', $this->match->id))
+            ->assertSessionHas('error', 'この試合はすでに予約済みです。');
 
+        // 確認画面のあとで予約済みになった場合（別タブでの二重送信など）は、確定時に拒否される
+        $this->actingAs($this->user)
+            ->withSession(['reservation_input.'.$this->broadcast->id => $this->input()])
+            ->post(route('reservations.store', $this->broadcast))
+            ->assertRedirect(route('reservations.create', $this->broadcast))
+            ->assertSessionHas('error', 'この試合はすでに予約済みです。');
+
+        $this->assertSame(1, Reservation::count());
+    }
+
+    /**
+     * 同じ試合を別の店舗で予約済みのユーザーと、その試合の別店舗の放映・座席種別を用意する。
+     *
+     * @return array{0: Broadcast, 1: BroadcastSeatType}
+     */
+    private function reservedMatchWithOtherShop(): array
+    {
+        $this->addReservation($this->seatType, 1, $this->user);
+        $otherBroadcast = $this->createBroadcast($this->match);
+
+        return [$otherBroadcast, $this->addSeatType($otherBroadcast, 10, 3000)];
+    }
+
+    public function test_second_reservation_for_same_match_at_other_shop_is_rejected_at_store(): void
+    {
+        [$otherBroadcast, $otherSeatType] = $this->reservedMatchWithOtherShop();
+        $input = $this->input(['broadcast_seat_type_id' => $otherSeatType->id]);
+
+        // 確認画面を通らずセッションに入力値を直接入れても、確定時に拒否される
+        $this->actingAs($this->user)
+            ->withSession(['reservation_input.'.$otherBroadcast->id => $input])
+            ->post(route('reservations.store', $otherBroadcast))
+            ->assertRedirect(route('reservations.create', $otherBroadcast))
+            ->assertSessionHas('error', 'この試合はすでに予約済みです。');
+
+        $this->assertSame(1, Reservation::count());
+    }
+
+    public function test_second_reservation_for_same_match_at_other_shop_is_rejected_at_create_and_confirm(): void
+    {
+        [$otherBroadcast, $otherSeatType] = $this->reservedMatchWithOtherShop();
+
+        $this->actingAs($this->user)->get(route('reservations.create', $otherBroadcast))
+            ->assertRedirect(route('matches.show', $this->match->id))
+            ->assertSessionHas('error', 'この試合はすでに予約済みです。');
+
+        $this->actingAs($this->user)
+            ->post(route('reservations.confirm', $otherBroadcast), $this->input(['broadcast_seat_type_id' => $otherSeatType->id]))
+            ->assertRedirect(route('matches.show', $this->match->id))
+            ->assertSessionHas('error', 'この試合はすでに予約済みです。')
+            ->assertSessionMissing('reservation_input.'.$otherBroadcast->id);
+
+        $this->actingAs($this->user)->followingRedirects()->get(route('reservations.create', $otherBroadcast))
+            ->assertSee('この試合はすでに予約済みです。');
+    }
+
+    public function test_user_can_reserve_same_match_at_other_shop_after_cancellation(): void
+    {
+        $this->addReservation($this->seatType, 1, $this->user, cancelled: true);
+        $otherBroadcast = $this->createBroadcast($this->match);
+        $otherSeatType = $this->addSeatType($otherBroadcast, 10, 3000);
+
+        $this->confirmAndStore($otherBroadcast, ['broadcast_seat_type_id' => $otherSeatType->id])->assertRedirect();
+
+        $this->assertSame(1, Reservation::confirmed()->count());
+    }
+
+    public function test_visited_and_no_show_reservations_do_not_block_same_match(): void
+    {
+        foreach ([Reservation::STATUS_VISITED, Reservation::STATUS_NO_SHOW] as $status) {
+            $this->addReservation($this->seatType, 1, $this->user)->update(['status' => $status]);
+        }
+        $service = new ReservationService;
+
+        $this->assertFalse($service->hasReservedMatch($this->user, $this->match->id));
+    }
+
+    public function test_other_users_reservation_does_not_block_same_match(): void
+    {
+        [$otherBroadcast, $otherSeatType] = $this->reservedMatchWithOtherShop();
+
+        $this->actingAs(User::factory()->create())->get(route('reservations.create', $otherBroadcast))->assertOk();
         $this->assertSame(1, Reservation::count());
     }
 
@@ -412,7 +498,10 @@ class ReservationTest extends TestCase
         $other = $this->addSeatType($this->broadcast, 10, 5000);
         $this->addReservation($this->seatType, 1, $this->user);
 
-        $this->confirmAndStore(input: ['broadcast_seat_type_id' => $other->id])->assertSessionHas('error');
+        $this->actingAs($this->user)
+            ->withSession(['reservation_input.'.$this->broadcast->id => $this->input(['broadcast_seat_type_id' => $other->id])])
+            ->post(route('reservations.store', $this->broadcast))
+            ->assertSessionHas('error', 'この試合はすでに予約済みです。');
 
         $this->assertSame(1, Reservation::count());
     }
@@ -527,5 +616,83 @@ class ReservationTest extends TestCase
         $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
             ->assertSee('受付終了')
             ->assertDontSee('予約する');
+    }
+
+    // ---- 試合詳細の「予約済み」 ----
+
+    public function test_match_show_displays_reserved_badge_and_hides_reserve_button_at_other_shops(): void
+    {
+        [$otherBroadcast] = $this->reservedMatchWithOtherShop();
+        $reservation = Reservation::sole();
+
+        $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
+            ->assertOk()
+            ->assertSee('予約済み')
+            ->assertSee('予約内容を見る')
+            ->assertSee(route('reservations.complete', $reservation), false)
+            ->assertDontSee('予約する')
+            ->assertDontSee(route('reservations.create', $otherBroadcast), false);
+    }
+
+    public function test_match_show_prefers_reserved_badge_over_sold_out(): void
+    {
+        $reservation = $this->addReservation($this->seatType, 10, $this->user);
+
+        $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
+            ->assertSee('予約済み')
+            ->assertSee(route('reservations.complete', $reservation), false);
+    }
+
+    public function test_match_show_ignores_cancelled_and_other_users_reservations(): void
+    {
+        $this->addReservation($this->seatType, 1, $this->user, cancelled: true);
+        $this->addReservation($this->seatType, 1);
+
+        $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
+            ->assertDontSee('予約済み')
+            ->assertSee('予約する');
+    }
+
+    public function test_match_show_ignores_reservation_of_other_match(): void
+    {
+        $otherBroadcast = $this->createBroadcast($this->createFootballMatch());
+        $this->addReservation($this->addSeatType($otherBroadcast, 10, 3000), 1, $this->user);
+
+        $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
+            ->assertDontSee('予約済み')
+            ->assertSee('予約する');
+    }
+
+    public function test_match_show_hides_reserve_button_when_reserved_shop_is_not_listed(): void
+    {
+        $this->addReservation($this->seatType, 1, $this->user);
+        // 予約した店舗が非公開になり、一覧に出なくなった
+        $this->broadcast->shop->update(['status' => 'draft']);
+        $otherBroadcast = $this->createBroadcast($this->match);
+        $this->addSeatType($otherBroadcast, 10, 3000);
+
+        $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
+            ->assertOk()
+            ->assertDontSee('予約する')
+            ->assertDontSee('予約済み');
+    }
+
+    public function test_match_show_query_count_does_not_depend_on_shop_count(): void
+    {
+        $this->addReservation($this->seatType, 1, $this->user);
+        $this->actingAs($this->user)->get(route('matches.show', $this->match->id))->assertOk();
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->get(route('matches.show', $this->match->id))->assertOk();
+        $before = count(DB::getQueryLog());
+
+        foreach (range(1, 3) as $i) {
+            $this->addSeatType($this->createBroadcast($this->match), 10, 3000);
+        }
+        DB::flushQueryLog();
+        $this->get(route('matches.show', $this->match->id))->assertOk();
+
+        $this->assertSame($before, count(DB::getQueryLog()));
     }
 }
