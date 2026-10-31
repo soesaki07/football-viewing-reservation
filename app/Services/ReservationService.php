@@ -18,6 +18,8 @@ class ReservationService
 
     public const ALREADY_RESERVED_MESSAGE = 'この試合はすでに予約済みです。';
 
+    public const NOT_CANCELLABLE_MESSAGE = 'この予約はキャンセルできません。';
+
     /**
      * 予約を確定する。金額は確定時点の価格からここで計算する。
      * トランザクション内でユーザー → 放映の座席種別の順にロックし、条件と残席を再確認してから予約を作る。
@@ -68,6 +70,31 @@ class ReservationService
                 'reserved_at' => now()->utc(),
                 'customer_note' => $customerNote,
             ]);
+        });
+    }
+
+    /**
+     * 予約をキャンセルする。予約の行だけをロックし、ロック後の最新の状態でキャンセルできるかを再確認する。
+     * 予約の人数・金額などは変えず、status と cancelled_at だけを更新する（残席は confirmed の人数合計から自動で戻る）。
+     *
+     * @throws ReservationException キャンセルできない予約のとき
+     */
+    public function cancel(Reservation $reservation): Reservation
+    {
+        return DB::transaction(function () use ($reservation) {
+            // 二重送信・同時操作を直列化するため、予約の行をロックして読み直す
+            $locked = Reservation::query()->whereKey($reservation->id)->lockForUpdate()->firstOrFail();
+
+            if (! $locked->isCancellable()) {
+                throw new ReservationException(self::NOT_CANCELLABLE_MESSAGE);
+            }
+
+            $locked->update([
+                'status' => Reservation::STATUS_CANCELLED,
+                'cancelled_at' => now()->utc(),
+            ]);
+
+            return $locked;
         });
     }
 

@@ -76,12 +76,6 @@ class ReservationShowTest extends TestCase
             ->assertDontSee('<b>窓際</b>', false);
     }
 
-    public function test_does_not_show_cancel_button(): void
-    {
-        $this->actingAs($this->user)->get(route('reservations.show', $this->reservation))
-            ->assertDontSee('キャンセルする');
-    }
-
     public function test_other_users_reservation_is_not_found(): void
     {
         $this->actingAs(User::factory()->create())->get(route('reservations.show', $this->reservation))

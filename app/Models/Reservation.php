@@ -112,6 +112,21 @@ class Reservation extends Model
     }
 
     /**
+     * キャンセルできるか。確定済み（confirmed）で、試合のキックオフ前（UTC で比較。ちょうどは不可）のときだけ可能。
+     * 店舗の公開状態や放映の受付期間は問わない。
+     */
+    public function isCancellable(?Carbon $now = null): bool
+    {
+        if ($this->status !== self::STATUS_CONFIRMED) {
+            return false;
+        }
+
+        $kickoffAt = $this->broadcastSeatType->broadcast->footballMatch->kickoff_at;
+
+        return ($now ?? now())->utc()->lt($kickoffAt->copy()->utc());
+    }
+
+    /**
      * 確定済み（席を押さえている）予約に絞り込む。cancelled / no_show / visited は含まない。
      *
      * @param  Builder<Reservation>  $query
