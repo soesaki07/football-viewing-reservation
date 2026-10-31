@@ -9,6 +9,7 @@ use App\Models\Reservation;
 use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ReservationService
 {
@@ -105,6 +106,13 @@ class ReservationService
             }
         }
 
+        // 予約コードそのものや個人情報は出さず、調査に必要な ID だけ記録する
+        Log::warning('予約コードの発行に3回失敗しました。', [
+            'attempts' => self::MAX_CODE_ATTEMPTS,
+            'user_id' => $attributes['user_id'] ?? null,
+            'broadcast_seat_type_id' => $attributes['broadcast_seat_type_id'] ?? null,
+        ]);
+
         throw new ReservationException('予約コードの発行に失敗しました。もう一度お試しください。');
     }
 
@@ -119,6 +127,9 @@ class ReservationService
         return DB::transaction(function () use ($reservation) {
             // 二重送信・同時操作を直列化するため、予約の行をロックして読み直す
             $locked = Reservation::query()->whereKey($reservation->id)->lockForUpdate()->firstOrFail();
+
+            // isCancellable() が使う関連を、ロックの後に明示的に読み込む（遅延読み込みに頼らない）
+            $locked->load('broadcastSeatType.broadcast.footballMatch');
 
             if (! $locked->isCancellable()) {
                 throw new ReservationException(self::NOT_CANCELLABLE_MESSAGE);

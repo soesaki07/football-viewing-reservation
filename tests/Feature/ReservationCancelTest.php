@@ -8,8 +8,12 @@ use App\Models\Reservation;
 use App\Models\SeatType;
 use App\Models\Shop;
 use App\Models\User;
+use App\Policies\ReservationPolicy;
 use App\Services\ReservationService;
+use Illuminate\Auth\Access\Response;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\CreatesFootballMatches;
@@ -254,5 +258,59 @@ class ReservationCancelTest extends TestCase
             ->patch(route('reservations.cancel', $this->reservation))
             ->assertOk()
             ->assertSee('この予約はキャンセルできません。');
+    }
+
+    public function test_policy_cancel_allows_owner_and_hides_others_as_not_found(): void
+    {
+        $policy = new ReservationPolicy;
+
+        $this->assertTrue($policy->cancel($this->user, $this->reservation)->allowed());
+
+        $response = $policy->cancel(User::factory()->create(), $this->reservation);
+        $this->assertTrue($response->denied());
+        $this->assertSame(404, $response->status());
+    }
+
+    public function test_cancel_is_denied_and_button_hidden_when_only_view_is_allowed(): void
+    {
+        // view は許可するが cancel は許可しない Policy に差し替える（view を広げてもキャンセル権限が増えないことの確認）
+        $policy = new class extends ReservationPolicy
+        {
+            public function cancel(User $user, Reservation $reservation): Response
+            {
+                return Response::denyAsNotFound();
+            }
+        };
+        $this->app->instance($policy::class, $policy);
+        Gate::policy(Reservation::class, $policy::class);
+
+        $this->actingAs($this->user)->get(route('reservations.show', $this->reservation))
+            ->assertOk()
+            ->assertDontSee('この予約をキャンセルする');
+
+        $this->cancel()->assertNotFound();
+        $this->assertSame(Reservation::STATUS_CONFIRMED, $this->reservation->fresh()->status);
+    }
+
+    public function test_cancel_loads_relations_used_by_cancellable_check(): void
+    {
+        // 関連を読み込んでいない予約を渡しても、cancel() がロック後に明示的に読み込む
+        $reservation = Reservation::findOrFail($this->reservation->id);
+        $this->assertFalse($reservation->relationLoaded('broadcastSeatType'));
+
+        // 1件の取得では遅延読み込みの禁止が付かないため、取得したモデルに付けて、遅延読み込みなら例外になるようにする
+        Model::preventLazyLoading();
+        Reservation::retrieved(fn (Reservation $model) => $model->preventsLazyLoading = true);
+
+        try {
+            $cancelled = app(ReservationService::class)->cancel($reservation);
+        } finally {
+            Model::preventLazyLoading(false);
+            Reservation::flushEventListeners();
+        }
+
+        $this->assertTrue($cancelled->relationLoaded('broadcastSeatType'));
+        $this->assertTrue($cancelled->broadcastSeatType->relationLoaded('broadcast'));
+        $this->assertTrue($cancelled->broadcastSeatType->broadcast->relationLoaded('footballMatch'));
     }
 }
