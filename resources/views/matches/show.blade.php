@@ -133,7 +133,7 @@
                             @endif
                             @if ($row['reservationId'])
                                 <span class="rounded-full bg-gold-400 px-3 py-1 text-xs font-bold text-pitch-950">予約済み</span>
-                                <a href="{{ route('reservations.complete', $row['reservationId']) }}" class="text-xs font-bold text-pitch-700 underline transition hover:text-gold-500">予約内容を見る</a>
+                                <a href="{{ route('reservations.show', $row['reservationId']) }}" class="text-xs font-bold text-pitch-700 underline transition hover:text-gold-500">予約内容を見る</a>
                             @elseif ($row['canReserve'])
                                 <a href="{{ route('reservations.create', $row['broadcastId']) }}" class="rounded-full bg-pitch-950 px-4 py-1 text-xs font-bold text-gold-400 transition hover:text-gold-300">予約する</a>
                             @endif

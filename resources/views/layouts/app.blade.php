@@ -29,6 +29,7 @@
                                     <a href="{{ route('matches.index', ['favorite' => 1]) }}" class="transition hover:text-gold-400">お気に入りの試合に戻る</a>
                                 @endif
                             @endif
+                            <a href="{{ route('mypage') }}" class="transition hover:text-gold-400">マイページ</a>
                             <form action="{{ route('logout') }}" method="POST">
                                 @csrf
                                 <button type="submit" class="text-sm font-medium text-pitch-100 transition hover:text-gold-400">ログアウト</button>

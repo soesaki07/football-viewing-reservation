@@ -532,7 +532,7 @@ class ReservationTest extends TestCase
     {
         $reservation = $this->addReservation($this->seatType, 2, $this->user);
 
-        $this->actingAs(User::factory()->create())->get(route('reservations.complete', $reservation))->assertForbidden();
+        $this->actingAs(User::factory()->create())->get(route('reservations.complete', $reservation))->assertNotFound();
         $this->actingAs($this->user)->get(route('reservations.complete', $reservation))->assertOk();
     }
 
@@ -629,7 +629,7 @@ class ReservationTest extends TestCase
             ->assertOk()
             ->assertSee('予約済み')
             ->assertSee('予約内容を見る')
-            ->assertSee(route('reservations.complete', $reservation), false)
+            ->assertSee(route('reservations.show', $reservation), false)
             ->assertDontSee('予約する')
             ->assertDontSee(route('reservations.create', $otherBroadcast), false);
     }
@@ -640,7 +640,7 @@ class ReservationTest extends TestCase
 
         $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
             ->assertSee('予約済み')
-            ->assertSee(route('reservations.complete', $reservation), false);
+            ->assertSee(route('reservations.show', $reservation), false);
     }
 
     public function test_match_show_ignores_cancelled_and_other_users_reservations(): void

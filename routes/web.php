@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\FavoriteTeamController;
 use App\Http\Controllers\MatchController;
+use App\Http\Controllers\MypageController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ShopController;
 use App\Services\FootballDataService;
@@ -35,6 +36,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/broadcasts/{broadcast}/reservations/create', [ReservationController::class, 'create'])->name('reservations.create');
     Route::post('/broadcasts/{broadcast}/reservations/confirm', [ReservationController::class, 'confirm'])->name('reservations.confirm');
     Route::post('/broadcasts/{broadcast}/reservations', [ReservationController::class, 'store'])->name('reservations.store');
+    Route::get('/mypage', [MypageController::class, 'index'])->name('mypage');
+    Route::get('/reservations/{reservation}', [ReservationController::class, 'show'])->name('reservations.show');
     Route::get('/reservations/{reservation}/complete', [ReservationController::class, 'complete'])->name('reservations.complete');
     Route::get('/select/teams', [FavoriteTeamController::class, 'selectFavoriteTeams'])->name('select.teams');
     Route::put('/select/teams/save', [FavoriteTeamController::class, 'saveFavoriteTeams'])->name('save.teams');
