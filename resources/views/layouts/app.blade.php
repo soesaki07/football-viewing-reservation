@@ -18,25 +18,22 @@
                     <span>欧州サッカー観戦予約</span>
                 </a>
 
-                <div class="flex items-center gap-6">
+                @auth
                     <nav class="hidden gap-6 text-sm font-medium text-pitch-100 sm:flex">
-                        @auth
-                            <a href="{{ route('select.teams') }}" class="transition hover:text-gold-400">お気に入り登録</a>
-                            @if ($hasFavoriteTeams)
-                                @if ($showFavoriteOnly)
-                                    <a href="{{ route('matches.index', ['favorite' => 0]) }}" class="transition hover:text-gold-400">試合一覧</a>
-                                @else
-                                    <a href="{{ route('matches.index', ['favorite' => 1]) }}" class="transition hover:text-gold-400">お気に入りの試合に戻る</a>
-                                @endif
-                            @endif
-                            <a href="{{ route('mypage') }}" class="transition hover:text-gold-400">マイページ</a>
-                            <form action="{{ route('logout') }}" method="POST">
-                                @csrf
-                                <button type="submit" class="text-sm font-medium text-pitch-100 transition hover:text-gold-400">ログアウト</button>
-                            </form>
-                        @endauth
+                        @include('layouts._nav_links', ['linkClass' => 'text-sm font-medium text-pitch-100 transition hover:text-gold-400'])
                     </nav>
-                </div>
+
+                    {{-- スマホ幅（sm 未満）のメニュー。JavaScript を使わず details/summary で開閉する --}}
+                    <details class="relative sm:hidden">
+                        <summary aria-label="メニュー" class="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-md text-2xl leading-none hover:bg-white/10 [&::-webkit-details-marker]:hidden">
+                            <span aria-hidden="true">☰</span>
+                            <span class="sr-only">メニュー</span>
+                        </summary>
+                        <nav class="absolute right-0 z-10 mt-2 flex w-60 flex-col gap-1 rounded-lg bg-pitch-950 p-3 text-sm shadow-lg ring-1 ring-white/10">
+                            @include('layouts._nav_links', ['linkClass' => 'block w-full rounded-md px-3 py-2 text-left text-sm font-medium text-pitch-100 transition hover:bg-white/10 hover:text-gold-400'])
+                        </nav>
+                    </details>
+                @endauth
             </div>
         </header>
 
