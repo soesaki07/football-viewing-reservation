@@ -22,6 +22,8 @@ class ReservationService
 
     public const NOT_CANCELLABLE_MESSAGE = 'この予約はキャンセルできません。';
 
+    public const NOT_VISIT_STATUS_CHANGEABLE_MESSAGE = 'この予約の来店状態は変更できません。';
+
     // 予約コードが重複したときに、新しいコードで作り直す最大回数
     private const MAX_CODE_ATTEMPTS = 3;
 
@@ -138,6 +140,34 @@ class ReservationService
             $locked->update([
                 'status' => Reservation::STATUS_CANCELLED,
                 'cancelled_at' => now()->utc(),
+            ]);
+
+            return $locked;
+        });
+    }
+
+    /**
+     * 予約の来店状態（visited / no_show）を更新する。予約の行だけをロックし、ロック後の最新の状態で変更できるかを再確認する。
+     * status と visited_at だけを更新する（visited のときは現在時刻、no_show のときは NULL）。
+     *
+     * @throws ReservationException 変更できない予約のとき
+     */
+    public function updateVisitStatus(Reservation $reservation, string $status): Reservation
+    {
+        return DB::transaction(function () use ($reservation, $status) {
+            // キャンセル・二重送信との同時操作を直列化するため、予約の行をロックして読み直す
+            $locked = Reservation::query()->whereKey($reservation->id)->lockForUpdate()->firstOrFail();
+
+            // canChangeVisitStatusTo() が使う関連を、ロックの後に明示的に読み込む
+            $locked->load('broadcastSeatType.broadcast.footballMatch');
+
+            if (! $locked->canChangeVisitStatusTo($status)) {
+                throw new ReservationException(self::NOT_VISIT_STATUS_CHANGEABLE_MESSAGE);
+            }
+
+            $locked->update([
+                'status' => $status,
+                'visited_at' => $status === Reservation::STATUS_VISITED ? now()->utc() : null,
             ]);
 
             return $locked;
