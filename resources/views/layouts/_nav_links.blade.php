@@ -7,6 +7,9 @@
         <a href="{{ route('matches.index', ['favorite' => 1]) }}" class="{{ $linkClass }}">お気に入りの試合に戻る</a>
     @endif
 @endif
+@can('access-owner-area')
+    <a href="{{ route('owner.reservations.index') }}" class="{{ $linkClass }}">予約管理</a>
+@endcan
 <a href="{{ route('mypage') }}" class="{{ $linkClass }}">マイページ</a>
 <form action="{{ route('logout') }}" method="POST">
     @csrf
