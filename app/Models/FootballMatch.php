@@ -136,7 +136,7 @@ class FootballMatch extends Model
     }
 
     /**
-     * ホームまたはアウェイのチームの正式名・略称・3文字コードに、キーワードが部分一致する試合に絞る。
+     * ホームまたはアウェイのチームの正式名・略称・3文字コード・日本語の正式名・日本語の略称に、キーワードが部分一致する試合に絞る。
      * LIKE の特殊文字（% _）はエスケープし、入力がそのままワイルドカードにならないようにする。
      *
      * @param  Builder<FootballMatch>  $query
@@ -149,7 +149,9 @@ class FootballMatch extends Model
         $matchesKeyword = function ($teamQuery) use ($pattern) {
             $teamQuery->whereRaw("name LIKE ? ESCAPE '!'", [$pattern])
                 ->orWhereRaw("short_name LIKE ? ESCAPE '!'", [$pattern])
-                ->orWhereRaw("tla LIKE ? ESCAPE '!'", [$pattern]);
+                ->orWhereRaw("tla LIKE ? ESCAPE '!'", [$pattern])
+                ->orWhereRaw("name_ja LIKE ? ESCAPE '!'", [$pattern])
+                ->orWhereRaw("short_name_ja LIKE ? ESCAPE '!'", [$pattern]);
         };
 
         $query->where(function ($group) use ($matchesKeyword) {

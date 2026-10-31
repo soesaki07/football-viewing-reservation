@@ -23,8 +23,8 @@ class ImportJapaneseNames extends Command
 
         try {
             // DB を更新する前に、2つのファイルとも読み込めることを確認する
-            $competitionRows = $this->readCsv($competitionsFile, ['external_competition_id', 'name_ja']);
-            $teamRows = $this->readCsv($teamsFile, ['external_team_id', 'name_ja', 'short_name_ja']);
+            $competitionRows = $this->readCsv($competitionsFile, ['external_competition_id', 'name_ja'], ['name_ja' => 255]);
+            $teamRows = $this->readCsv($teamsFile, ['external_team_id', 'name_ja', 'short_name_ja'], ['name_ja' => 255, 'short_name_ja' => 100]);
         } catch (\RuntimeException $e) {
             $this->error($e->getMessage());
 
@@ -39,8 +39,8 @@ class ImportJapaneseNames extends Command
             return [$competitionResult, $teamResult];
         });
 
-        $this->info("大会：更新 {$competitionResult['updated']} 件");
-        $this->info("チーム：更新 {$teamResult['updated']} 件");
+        $this->info("大会：反映 {$competitionResult['updated']} 件");
+        $this->info("チーム：反映 {$teamResult['updated']} 件");
 
         foreach (['大会' => $competitionResult, 'チーム' => $teamResult] as $label => $result) {
             if ($result['skipped'] > 0) {
@@ -55,11 +55,12 @@ class ImportJapaneseNames extends Command
      * CSV を読み込み、ヘッダーをキーにした行の配列を返す。
      *
      * @param  list<string>  $expectedHeader
+     * @param  array<string, int>  $maxLengths  列ごとの最大文字数
      * @return list<array<string, string>>
      *
      * @throws \RuntimeException ファイルがない・読めない・ヘッダーや行の形式が違うとき
      */
-    private function readCsv(string $path, array $expectedHeader): array
+    private function readCsv(string $path, array $expectedHeader, array $maxLengths): array
     {
         if (! is_file($path) || ! is_readable($path)) {
             throw new \RuntimeException("ファイルが見つからないか、読み込めません：{$path}");
@@ -81,6 +82,7 @@ class ImportJapaneseNames extends Command
             }
 
             $rows = [];
+            $seenIds = [];
             $lineNumber = 1;
             while (($fields = fgetcsv($handle, escape: '')) !== false) {
                 $lineNumber++;
@@ -97,6 +99,18 @@ class ImportJapaneseNames extends Command
                 $row = array_combine($expectedHeader, array_map('trim', $fields));
                 if (! ctype_digit($row[$expectedHeader[0]])) {
                     throw new \RuntimeException("IDが数字ではありません（{$path} の {$lineNumber} 行目）");
+                }
+
+                $id = $row[$expectedHeader[0]];
+                if (isset($seenIds[(int) $id])) {
+                    throw new \RuntimeException("{$path} の {$lineNumber} 行目：ID {$id} が重複しています");
+                }
+                $seenIds[(int) $id] = true;
+
+                foreach ($maxLengths as $column => $maxLength) {
+                    if (mb_strlen($row[$column]) > $maxLength) {
+                        throw new \RuntimeException("{$path} の {$lineNumber} 行目：{$column} が長すぎます（最大 {$maxLength} 文字）");
+                    }
                 }
 
                 $rows[] = $row;
@@ -121,8 +135,13 @@ class ImportJapaneseNames extends Command
         $updated = 0;
         $skipped = 0;
 
+        // 対象をまとめて取得してから保存する（1行ずつ検索しない）
+        $models = $modelClass::whereIn($idColumn, array_map(fn (array $row) => (int) $row[$idColumn], $rows))
+            ->get()
+            ->keyBy($idColumn);
+
         foreach ($rows as $row) {
-            $model = $modelClass::where($idColumn, (int) $row[$idColumn])->first();
+            $model = $models->get((int) $row[$idColumn]);
 
             if ($model === null) {
                 $skipped++;
