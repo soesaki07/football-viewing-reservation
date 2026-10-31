@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -16,9 +17,9 @@ use Illuminate\Support\Carbon;
  * @property int $unit_price
  * @property int $total_price
  * @property string $status
- * @property string $reserved_at
- * @property string|null $cancelled_at
- * @property string|null $visited_at
+ * @property Carbon $reserved_at
+ * @property Carbon|null $cancelled_at
+ * @property Carbon|null $visited_at
  * @property string|null $customer_note
  * @property string|null $shop_note
  * @property Carbon|null $created_at
@@ -49,7 +50,15 @@ use Illuminate\Support\Carbon;
  */
 class Reservation extends Model
 {
+    use HasFactory;
+
     public const STATUS_CONFIRMED = 'confirmed';
+
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUS_VISITED = 'visited';
+
+    public const STATUS_NO_SHOW = 'no_show';
 
     protected $fillable = [
         'reservation_code',
@@ -65,6 +74,18 @@ class Reservation extends Model
         'customer_note',
         'shop_note',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'reserved_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'visited_at' => 'datetime',
+        ];
+    }
 
     public function user(): BelongsTo
     {

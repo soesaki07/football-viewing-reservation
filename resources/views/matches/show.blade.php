@@ -91,6 +91,9 @@
             <span class="text-gold-500">🍺</span>
             放映店舗
         </h2>
+        @if (session('error'))
+            <p class="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700" role="alert">{{ session('error') }}</p>
+        @endif
         @if ($isFinished)
             <p class="rounded-xl border border-pitch-100 bg-white p-6 text-center text-sm text-pitch-700 shadow-sm">この試合の放映は終了しました。</p>
         @elseif ($broadcastShops->isEmpty())
@@ -127,6 +130,9 @@
                                 <span class="rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold text-yellow-800">受付前</span>
                             @elseif ($row['reservationStatus'] === 'closed')
                                 <span class="rounded-full bg-gray-200 px-3 py-1 text-xs font-bold text-gray-600">受付終了</span>
+                            @endif
+                            @if ($row['canReserve'])
+                                <a href="{{ route('reservations.create', $row['broadcastId']) }}" class="rounded-full bg-pitch-950 px-4 py-1 text-xs font-bold text-gold-400 transition hover:text-gold-300">予約する</a>
                             @endif
                         </div>
                     </li>
