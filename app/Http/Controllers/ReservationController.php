@@ -137,7 +137,7 @@ class ReservationController extends Controller
         $broadcast = $reservation->broadcastSeatType->broadcast;
         $shop = $broadcast->shop;
 
-        $canCancel = $reservation->isCancellable();
+        $canCancel = Gate::allows('cancel', $reservation) && $reservation->isCancellable();
 
         return view('reservations.show', [...compact('reservation', 'broadcast', 'shop', 'canCancel'), ...$this->navigation($request)]);
     }
@@ -147,7 +147,7 @@ class ReservationController extends Controller
      */
     public function cancel(Reservation $reservation, ReservationService $reservationService): RedirectResponse
     {
-        Gate::authorize('view', $reservation);
+        Gate::authorize('cancel', $reservation);
 
         try {
             $reservationService->cancel($reservation);
