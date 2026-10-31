@@ -29,7 +29,7 @@
 - APIキーなど秘密情報は `.env` で管理する（例: `FOOTBALL_DATA_API_KEY`, `FOOTBALL_DATA_BASE_URL` は `config/services.php` の `football_data` 経由で参照）。秘密情報を `.env` 以外（コード直書き、`config` 内のデフォルト値、コミット対象ファイル）に置かない。
 - 日時処理は Carbon を使う。素の `DateTime` や文字列操作でのタイムゾーン変換は避ける。
 - DB 変更は必ず migration で管理する。既存マイグレーションを直接書き換えず、変更が必要な場合は新しい migration を追加する。
-- Scheduler（API の定期同期。時刻は `routes/console.php`）は、`sail up -d` でコンテナ `scheduler`（`php artisan schedule:work`）が常駐して動く。止めたいときは `sail stop scheduler`（再開は `sail up -d scheduler`）。同期の動きは `sail logs -f scheduler` で見られる。
+- Scheduler（API の定期同期。時刻は `routes/console.php`）は、`sail up -d` でコンテナ `scheduler`（`php artisan schedule:work`）が常駐して動く。止めたいときは `sail stop scheduler`（再開は `sail up -d scheduler`）。同期の動きは `sail logs -f scheduler` で見られる。同期コマンドを手動で実行するときは、毎時0〜2分（試合の定期同期と重なり API の 10回/分 を超えるおそれがある）を避ける。実行中にコンテナを止めてロックが残ったときは `sail artisan schedule:clear-cache` で解除できる。
 
 ## 開発の進め方（AI主導の実装＋開発者レビュー）
 

@@ -8,12 +8,21 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Mockery;
 use Tests\TestCase;
 
 class ScheduleTest extends TestCase
 {
     use RefreshDatabase;
+
+    /**
+     * スケジュールイベントの Artisan コマンド名（php artisan 以降）を取り出す。
+     */
+    private function commandName(Event $event): string
+    {
+        return trim(Str::after($event->command, "'artisan'"));
+    }
 
     /**
      * 指定した Artisan コマンドのスケジュールイベントを取得する。
@@ -27,7 +36,7 @@ class ScheduleTest extends TestCase
 
         /** @var Collection<int, Event> $events */
         $events = collect(app(Schedule::class)->events())
-            ->filter(fn (Event $event) => str_contains($event->command, $command));
+            ->filter(fn (Event $event) => $this->commandName($event) === $command);
 
         $this->assertCount(1, $events, "{$command} がスケジュールに1件だけ登録されていること");
 
@@ -41,6 +50,7 @@ class ScheduleTest extends TestCase
         $this->assertSame('0 * * * *', $event->expression);
         $this->assertSame('Asia/Tokyo', (string) $event->timezone);
         $this->assertTrue($event->withoutOverlapping);
+        $this->assertSame(15, $event->expiresAt);
     }
 
     public function test_大会同期は毎日3時30分に_js_tで登録されている(): void
@@ -50,6 +60,7 @@ class ScheduleTest extends TestCase
         $this->assertSame('30 3 * * *', $event->expression);
         $this->assertSame('Asia/Tokyo', (string) $event->timezone);
         $this->assertTrue($event->withoutOverlapping);
+        $this->assertSame(15, $event->expiresAt);
     }
 
     public function test_チーム同期は毎日3時40分に_js_tで登録されている(): void
@@ -59,6 +70,7 @@ class ScheduleTest extends TestCase
         $this->assertSame('40 3 * * *', $event->expression);
         $this->assertSame('Asia/Tokyo', (string) $event->timezone);
         $this->assertTrue($event->withoutOverlapping);
+        $this->assertSame(15, $event->expiresAt);
     }
 
     public function test_失敗時はエラーログに記録される(): void
@@ -99,5 +111,24 @@ class ScheduleTest extends TestCase
         $event->mutex->forget($event);
 
         $this->assertTrue($event->mutex->create($event), '解放後は再びロックを取得できる');
+    }
+
+    public function test_同期のスケジュールは3件だけで予期しないものが増えていない(): void
+    {
+        $this->app->instance(Schedule::class, new Schedule('UTC'));
+        Facade::clearResolvedInstance(Schedule::class);
+        require dirname(__DIR__, 2).'/routes/console.php';
+
+        $commands = collect(app(Schedule::class)->events())
+            ->map(fn (Event $event) => $this->commandName($event))
+            ->sort()
+            ->values()
+            ->all();
+
+        $this->assertSame([
+            'app:sync-competitions',
+            'app:sync-football-matches',
+            'app:sync-teams',
+        ], $commands);
     }
 }
