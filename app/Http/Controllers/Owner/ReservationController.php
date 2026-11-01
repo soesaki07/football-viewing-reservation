@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -109,11 +110,16 @@ class ReservationController extends Controller
         // 他店の予約の存在を隠すため、入力の検証より先に認可する
         Gate::authorize('updateVisitStatus', $reservation);
 
-        $validated = $request->validate([
+        // 失敗したときも、Referer ではなく成功・失敗のときと同じ一覧の URL へ戻す
+        $redirect = redirect()->route('owner.reservations.index', $this->listConditions($request, $reservation));
+
+        $validator = Validator::make($request->all(), [
             'status' => ['required', 'string', Rule::in([Reservation::STATUS_VISITED, Reservation::STATUS_NO_SHOW])],
         ]);
-
-        $redirect = redirect()->route('owner.reservations.index', $this->listConditions($request, $reservation));
+        if ($validator->fails()) {
+            return $redirect->withErrors($validator);
+        }
+        $validated = $validator->validated();
 
         try {
             $reservationService->updateVisitStatus($reservation, $validated['status']);
@@ -121,7 +127,7 @@ class ReservationController extends Controller
             return $redirect->with('error', $e->getMessage());
         }
 
-        $label = $validated['status'] === Reservation::STATUS_VISITED ? '来店済み' : '来店なし';
+        $label = Reservation::visitStatusLabel($validated['status']);
 
         return $redirect->with('success', "予約 {$reservation->reservation_code} を{$label}にしました。");
     }

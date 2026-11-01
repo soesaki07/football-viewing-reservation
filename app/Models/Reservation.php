@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use InvalidArgumentException;
 
 /**
  * @property int $id
@@ -159,6 +160,32 @@ class Reservation extends Model
             [self::STATUS_VISITED, self::STATUS_NO_SHOW],
             fn (string $status): bool => $this->canChangeVisitStatusTo($status, $now),
         ));
+    }
+
+    /**
+     * 来店状態の変更先の表示名（メッセージ・確認ダイアログ用）。「来店済み」「来店なし」。
+     */
+    public static function visitStatusLabel(string $status): string
+    {
+        return match ($status) {
+            self::STATUS_VISITED => '来店済み',
+            self::STATUS_NO_SHOW => '来店なし',
+            default => throw new InvalidArgumentException("来店状態として扱えない値です：{$status}"),
+        };
+    }
+
+    /**
+     * 一覧のボタンの文言。confirmed からは「来店済み」「来店なし」、付け替えのときは「〜に変更」。
+     */
+    public function visitStatusButtonLabel(string $nextStatus): string
+    {
+        $label = self::visitStatusLabel($nextStatus);
+
+        return match ($this->status) {
+            self::STATUS_CONFIRMED => $label,
+            self::STATUS_VISITED, self::STATUS_NO_SHOW => "{$label}に変更",
+            default => throw new InvalidArgumentException("来店状態を変更できない予約状態です：{$this->status}"),
+        };
     }
 
     /**

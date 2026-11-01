@@ -98,15 +98,7 @@
                                 <td class="whitespace-nowrap px-4 py-3">{{ $reservation->number_of_people }}人</td>
                                 <td class="whitespace-nowrap px-4 py-3"><span class="rounded-full bg-pitch-100 px-3 py-1 text-xs font-bold text-pitch-950">{{ $reservation->statusLabel() }}</span>
                                     @foreach ($reservation->availableVisitStatusChanges() as $nextStatus)
-                                        @php
-                                            $buttonLabel = match (true) {
-                                                $nextStatus === 'visited' && $reservation->status === 'no_show' => '来店済みに変更',
-                                                $nextStatus === 'no_show' && $reservation->status === 'visited' => '来店なしに変更',
-                                                $nextStatus === 'visited' => '来店済み',
-                                                default => '来店なし',
-                                            };
-                                        @endphp
-                                        <form method="POST" action="{{ route('owner.reservations.visit-status', $reservation) }}" data-confirm="予約 {{ $reservation->reservation_code }} を{{ $nextStatus === 'visited' ? '来店済み' : '来店なし' }}にしますか？" class="ml-2 inline">
+                                        <form method="POST" action="{{ route('owner.reservations.visit-status', $reservation) }}" data-confirm="予約 {{ $reservation->reservation_code }} を{{ \App\Models\Reservation::visitStatusLabel($nextStatus) }}にしますか？" class="ml-2 inline">
                                             @csrf
                                             @method('PATCH')
                                             <input type="hidden" name="status" value="{{ $nextStatus }}">
@@ -115,7 +107,7 @@
                                                 <input type="hidden" name="match" value="{{ $selectedMatchId }}">
                                             @endif
                                             <input type="hidden" name="page" value="{{ $reservations->currentPage() }}">
-                                            <button type="submit" class="rounded-md border border-pitch-100 bg-white px-3 py-1 text-xs font-bold text-pitch-700 transition hover:text-gold-500">{{ $buttonLabel }}</button>
+                                            <button type="submit" class="rounded-md border border-pitch-100 bg-white px-3 py-1 text-xs font-bold text-pitch-700 transition hover:text-gold-500">{{ $reservation->visitStatusButtonLabel($nextStatus) }}</button>
                                         </form>
                                     @endforeach
                                 </td>

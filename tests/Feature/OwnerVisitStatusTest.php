@@ -13,6 +13,7 @@ use App\Policies\ReservationPolicy;
 use App\Services\ReservationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\CreatesFootballMatches;
 use Tests\TestCase;
@@ -149,7 +150,11 @@ class OwnerVisitStatusTest extends TestCase
     public function test_cannot_change_to_same_status(): void
     {
         $visited = $this->addReservation(state: ['status' => Reservation::STATUS_VISITED, 'visited_at' => now()->subMinute()]);
+        $visitedAt = $visited->visited_at;
         $this->update($visited, 'visited')->assertSessionHas('error');
+        $visited->refresh();
+        $this->assertSame(Reservation::STATUS_VISITED, $visited->status);
+        $this->assertTrue($visited->visited_at->equalTo($visitedAt));
 
         $noShow = $this->addReservation(state: ['status' => Reservation::STATUS_NO_SHOW]);
         $this->update($noShow, 'no_show')->assertSessionHas('error');
@@ -161,8 +166,11 @@ class OwnerVisitStatusTest extends TestCase
     {
         $reservation = $this->addReservation();
 
+        // 失敗したときも、Referer ではなく一覧の URL（条件つき）へエラー付きで戻る
         $this->actingAs($this->owner)
-            ->patch(route('owner.reservations.visit-status', $reservation), $status === null ? [] : ['status' => $status])
+            ->from('http://evil.example/back')
+            ->patch(route('owner.reservations.visit-status', $reservation), ($status === null ? [] : ['status' => $status]) + ['period' => 'past', 'match' => '5', 'page' => '2'])
+            ->assertRedirect(route('owner.reservations.index', ['shop' => $this->shop->id, 'period' => 'past', 'match' => 5, 'page' => 2]))
             ->assertSessionHasErrors('status');
 
         $this->assertSame(Reservation::STATUS_CONFIRMED, $reservation->refresh()->status);
@@ -292,15 +300,27 @@ class OwnerVisitStatusTest extends TestCase
 
         $html = $this->actingAs($this->owner)->get(route('owner.reservations.index', ['period' => 'past']))->assertOk()->getContent();
 
-        $this->assertStringContainsString(route('owner.reservations.visit-status', $confirmed), $html);
-        $this->assertStringContainsString(route('owner.reservations.visit-status', $visited), $html);
-        $this->assertStringContainsString(route('owner.reservations.visit-status', $noShow), $html);
-        $this->assertStringContainsString('data-confirm=', $html);
-        // ボタンの文言（confirmed は2つ、visited / no_show は1つずつ）
-        $this->assertSame(1, substr_count($html, '>来店済み</button>'));
-        $this->assertSame(1, substr_count($html, '>来店なし</button>'));
-        $this->assertSame(1, substr_count($html, '>来店なしに変更</button>'));
-        $this->assertSame(1, substr_count($html, '>来店済みに変更</button>'));
+        // 予約ごとのフォーム（action の URL => [hidden の status => ボタンの文言]）
+        $forms = [];
+        preg_match_all('#<form method="POST" action="([^"]+)" data-confirm="([^"]+)".*?name="status" value="([^"]+)".*?<button[^>]*>([^<]+)</button>#s', $html, $matches, PREG_SET_ORDER);
+        foreach ($matches as $match) {
+            $forms[$match[1]][$match[3]] = ['button' => $match[4], 'confirm' => $match[2]];
+        }
+
+        $confirmedUrl = route('owner.reservations.visit-status', $confirmed);
+        $visitedUrl = route('owner.reservations.visit-status', $visited);
+        $noShowUrl = route('owner.reservations.visit-status', $noShow);
+
+        $this->assertCount(3, $forms);
+        $this->assertSame(['visited', 'no_show'], array_keys($forms[$confirmedUrl]));
+        $this->assertSame('来店済み', $forms[$confirmedUrl]['visited']['button']);
+        $this->assertSame('来店なし', $forms[$confirmedUrl]['no_show']['button']);
+        $this->assertStringContainsString('来店済みにしますか？', $forms[$confirmedUrl]['visited']['confirm']);
+        $this->assertSame(['no_show'], array_keys($forms[$visitedUrl]));
+        $this->assertSame('来店なしに変更', $forms[$visitedUrl]['no_show']['button']);
+        $this->assertSame(['visited'], array_keys($forms[$noShowUrl]));
+        $this->assertSame('来店済みに変更', $forms[$noShowUrl]['visited']['button']);
+        $this->assertStringContainsString('来店済みにしますか？', $forms[$noShowUrl]['visited']['confirm']);
     }
 
     public function test_list_shows_no_button_before_kickoff_or_for_cancelled(): void
@@ -312,5 +332,37 @@ class OwnerVisitStatusTest extends TestCase
             ->assertOk()->assertDontSee('visit-status')->assertDontSee('data-confirm', false);
         $this->actingAs($this->owner)->get(route('owner.reservations.index'))
             ->assertOk()->assertDontSee('visit-status');
+    }
+
+    public function test_visit_status_labels_throw_for_unexpected_values(): void
+    {
+        $this->assertSame('来店済み', Reservation::visitStatusLabel(Reservation::STATUS_VISITED));
+        $this->assertSame('来店なし', Reservation::visitStatusLabel(Reservation::STATUS_NO_SHOW));
+
+        foreach (['confirmed', 'cancelled', 'foo'] as $status) {
+            try {
+                Reservation::visitStatusLabel($status);
+                $this->fail("{$status} で例外が投げられるはずです。");
+            } catch (InvalidArgumentException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+
+        // ボタンの文言：変更先が想定外、または今の予約状態が変更できない状態（cancelled）のときは例外
+        $reservation = new Reservation(['status' => Reservation::STATUS_CONFIRMED]);
+        $this->assertSame('来店済み', $reservation->visitStatusButtonLabel(Reservation::STATUS_VISITED));
+        $reservation->status = Reservation::STATUS_NO_SHOW;
+        $this->assertSame('来店済みに変更', $reservation->visitStatusButtonLabel(Reservation::STATUS_VISITED));
+
+        try {
+            $reservation->visitStatusButtonLabel('cancelled');
+            $this->fail('変更先が cancelled のとき例外が投げられるはずです。');
+        } catch (InvalidArgumentException) {
+            $this->addToAssertionCount(1);
+        }
+
+        $reservation->status = Reservation::STATUS_CANCELLED;
+        $this->expectException(InvalidArgumentException::class);
+        $reservation->visitStatusButtonLabel(Reservation::STATUS_VISITED);
     }
 }
