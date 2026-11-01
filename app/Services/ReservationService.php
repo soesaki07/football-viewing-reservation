@@ -28,6 +28,8 @@ class ReservationService
 
     public const ALREADY_RESERVED_MESSAGE = 'この試合はすでに予約済みです。';
 
+    public const PRICE_CHANGED_MESSAGE = '料金が変更されました。内容を確認してもう一度予約してください。';
+
     public const NOT_CANCELLABLE_MESSAGE = 'この予約はキャンセルできません。';
 
     public const NOT_VISIT_STATUS_CHANGEABLE_MESSAGE = 'この予約の来店状態は変更できません。';
@@ -42,6 +44,7 @@ class ReservationService
 
     /**
      * 予約を確定する。金額は確定時点の価格からここで計算する。
+     * $expectedUnitPrice は確認画面で見せた単価（サーバー側のセッションの値）。ロック後の単価と違えば拒否する。
      * トランザクション内でユーザー → 放映の座席種別の順にロックし、条件と残席を再確認してから予約を作る。
      *
      * 注意：
@@ -52,9 +55,9 @@ class ReservationService
      *
      * @throws ReservationException 予約できない条件に当てはまったとき
      */
-    public function reserve(User $user, Broadcast $broadcast, int $broadcastSeatTypeId, int $numberOfPeople, ?string $customerNote): Reservation
+    public function reserve(User $user, Broadcast $broadcast, int $broadcastSeatTypeId, int $numberOfPeople, int $expectedUnitPrice, ?string $customerNote): Reservation
     {
-        return DB::transaction(function () use ($user, $broadcast, $broadcastSeatTypeId, $numberOfPeople, $customerNote) {
+        return DB::transaction(function () use ($user, $broadcast, $broadcastSeatTypeId, $numberOfPeople, $expectedUnitPrice, $customerNote) {
             // 同じユーザーが同じ試合の別の店舗へ同時に予約するのを直列化するため、ユーザーの行を先にロックする
             // （ロックの順番は常に「users → broadcast_seat_types」で固定し、デッドロックを避ける）
             User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
@@ -73,6 +76,11 @@ class ReservationService
             $seatType = $broadcast->activeBroadcastSeatTypes()->where('broadcast_seat_types.id', $broadcastSeatTypeId)->first();
             if ($seatType === null) {
                 throw new ReservationException('選択された座席種別は予約できません。');
+            }
+            // 確認画面で利用者に見せた単価と、ロック後の最新の単価が違えば、同意のない金額で確定しない
+            // DB ドライバによって price が文字列で返ることがあるため、型をそろえて比べる
+            if ((int) $seatType->price !== $expectedUnitPrice) {
+                throw new ReservationException(self::PRICE_CHANGED_MESSAGE);
             }
             if ($numberOfPeople < 1 || $numberOfPeople > $seatType->max_people_per_reservation) {
                 throw new ReservationException("人数は1人以上{$seatType->max_people_per_reservation}人以下で指定してください。");

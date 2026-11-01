@@ -52,5 +52,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/broadcasts', [OwnerBroadcastController::class, 'index'])->name('broadcasts.index');
         Route::get('/broadcasts/create', [OwnerBroadcastController::class, 'create'])->name('broadcasts.create');
         Route::post('/broadcasts', [OwnerBroadcastController::class, 'store'])->name('broadcasts.store');
+        Route::get('/broadcasts/{broadcast}/edit', [OwnerBroadcastController::class, 'edit'])->name('broadcasts.edit');
+        Route::put('/broadcasts/{broadcast}', [OwnerBroadcastController::class, 'update'])->name('broadcasts.update');
     });
 });

@@ -52,13 +52,16 @@ class ReservationController extends Controller
         }
 
         $input = $request->safe()->only(['broadcast_seat_type_id', 'number_of_people', 'customer_note']);
-        $request->session()->put($this->sessionKey($broadcast), $input);
+        // 座席を探す前に前回の入力を消す（検証の後に座席が販売停止になって 404 になっても、前の内容で確定されないようにする）
+        $request->session()->forget($this->sessionKey($broadcast));
 
         $broadcast->load(['footballMatch.homeTeam', 'footballMatch.awayTeam', 'shop']);
         $seatType = $broadcast->activeBroadcastSeatTypes()
             ->with('seatType')
             ->where('broadcast_seat_types.id', (int) $input['broadcast_seat_type_id'])
             ->firstOrFail();
+        // 確認画面で見せる単価もサーバー側のセッションに保存する（確定時に最新の単価と比べる。クライアントからは受け取らない）
+        $request->session()->put($this->sessionKey($broadcast), [...$input, 'unit_price' => $seatType->price]);
         $numberOfPeople = (int) $input['number_of_people'];
         // 表示用の合計金額（確定時はサーバー側で改めて計算する）
         $totalPrice = $seatType->price * $numberOfPeople;
@@ -74,7 +77,7 @@ class ReservationController extends Controller
     {
         $key = $this->sessionKey($broadcast);
         $input = $request->session()->get($key);
-        if (! is_array($input) || ! isset($input['broadcast_seat_type_id'], $input['number_of_people'])) {
+        if (! is_array($input) || ! isset($input['broadcast_seat_type_id'], $input['number_of_people'], $input['unit_price'])) {
             return redirect()->route('reservations.create', $broadcast)
                 ->with('error', '入力内容が見つかりません。もう一度入力してください。');
         }
@@ -88,6 +91,7 @@ class ReservationController extends Controller
                 $broadcast,
                 (int) $input['broadcast_seat_type_id'],
                 (int) $input['number_of_people'],
+                (int) $input['unit_price'],
                 $input['customer_note'] ?? null,
             );
         } catch (ReservationException $e) {

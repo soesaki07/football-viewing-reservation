@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Owner;
 
+use App\Exceptions\BroadcastUpdateException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreBroadcastRequest;
+use App\Http\Requests\UpdateBroadcastRequest;
 use App\Models\Broadcast;
 use App\Models\Competition;
 use App\Models\FootballMatch;
@@ -128,7 +130,7 @@ class BroadcastController extends Controller
                 $validated['status'],
                 $request->parseJst($validated['reservation_start_at']),
                 $request->parseJst($validated['reservation_end_at']),
-                $request->seatsForStore(),
+                $request->seats(),
             );
         } catch (UniqueConstraintViolationException) {
             // 同時に同じ試合を登録されたとき。500 にせず入力画面へ戻す
@@ -143,6 +145,77 @@ class BroadcastController extends Controller
         return redirect()
             ->route('owner.broadcasts.index', ['shop' => $shop->id])
             ->with('success', '放映を登録しました。');
+    }
+
+    /**
+     * 放映の編集画面。受付期間・ステータス・座席（販売停止中も含む）と、まだ足していない座席種別を表示する。
+     * 試合は変えられないので、表示するだけ。
+     */
+    public function edit(Request $request, Broadcast $broadcast): View|RedirectResponse
+    {
+        // 他店・削除済みの店舗の放映は 404、shop_owner 以外は 403
+        Gate::authorize('update', $broadcast);
+
+        $broadcast->load(['shop', 'footballMatch.homeTeam', 'footballMatch.awayTeam']);
+        $shop = $broadcast->shop;
+
+        // 終了した試合の放映は編集できない
+        if ($broadcast->footballMatch->isFinished()) {
+            return redirect()
+                ->route('owner.broadcasts.index', ['shop' => $shop->id])
+                ->with('error', BroadcastService::FINISHED_MESSAGE);
+        }
+
+        // この放映にある座席（販売停止中も含む）。予約数（confirmed の人数合計）も一緒に取得する
+        $seats = $broadcast->broadcastSeatTypes()
+            ->withSum('confirmedReservations as confirmed_people', 'number_of_people')
+            ->with('seatType')
+            ->orderBy('id')
+            ->get();
+
+        // まだ足していない、店舗の有効な座席種別
+        $addableSeatTypes = $shop->seatTypes()
+            ->where('is_active', true)
+            ->whereNotIn('id', $seats->pluck('seat_type_id'))
+            ->orderBy('id')
+            ->get();
+
+        return view('owner.broadcasts.edit', compact('shop', 'broadcast', 'seats', 'addableSeatTypes') + $this->headerData($request));
+    }
+
+    /**
+     * 放映を更新する。入力の検証・認可は UpdateBroadcastRequest で行う。
+     */
+    public function update(UpdateBroadcastRequest $request, Broadcast $broadcast, BroadcastService $broadcastService): RedirectResponse
+    {
+        $validated = $request->validated();
+
+        try {
+            $broadcastService->update(
+                $broadcast,
+                $validated['status'],
+                $request->parseJst($validated['reservation_start_at']),
+                $request->parseJst($validated['reservation_end_at']),
+                $request->seats(),
+            );
+        } catch (BroadcastUpdateException $e) {
+            // 席数が予約済みの人数を下回るとき、座席種別が使えなくなったとき：入力画面に戻し、該当の欄にエラーを出す
+            if ($e->fieldErrors() !== []) {
+                return redirect()
+                    ->route('owner.broadcasts.edit', $broadcast)
+                    ->withInput()
+                    ->withErrors($e->fieldErrors());
+            }
+
+            // 試合が終了したとき：一覧に戻してメッセージを出す
+            return redirect()
+                ->route('owner.broadcasts.index', ['shop' => $broadcast->shop_id])
+                ->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('owner.broadcasts.index', ['shop' => $broadcast->shop_id])
+            ->with('success', '放映を更新しました。');
     }
 
     /**
