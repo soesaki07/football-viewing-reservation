@@ -21,6 +21,9 @@ class MypageTest extends TestCase
 
     private User $user;
 
+    // テストで作る予約コードの連番（重ならないようにする）
+    private int $codeSequence = 0;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -54,7 +57,7 @@ class MypageTest extends TestCase
         return Reservation::factory()->state(array_merge([
             'broadcast_seat_type_id' => $broadcastSeatType->id,
             'user_id' => ($user ?? $this->user)->id,
-            'reservation_code' => strtoupper(substr(md5((string) microtime(true).$kickoffAt), 0, 8)),
+            'reservation_code' => 'SEQ'.str_pad((string) ++$this->codeSequence, 5, '0', STR_PAD_LEFT),
         ], $reservationState))->create();
     }
 
@@ -191,25 +194,49 @@ class MypageTest extends TestCase
             ->assertSee(route('select.teams'), false);
     }
 
-    public function test_header_has_mypage_link_when_logged_in(): void
+    public function test_header_has_mypage_link_on_other_pages_when_logged_in(): void
     {
-        $this->actingAs($this->user)->get(route('mypage'))
+        // マイページ自身ではなく、試合一覧など別の画面のヘッダーに出ることを確かめる
+        $this->actingAs($this->user)->get(route('matches.index'))
+            ->assertOk()
             ->assertSee('マイページ')
             ->assertSee('href="'.route('mypage').'"', false);
     }
 
+    public function test_header_has_no_mypage_link_when_guest(): void
+    {
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertDontSee('マイページ')
+            ->assertDontSee('href="'.route('mypage').'"', false);
+    }
+
+    /**
+     * マイページのクエリ数を数える。
+     */
+    private function mypageQueryCount(): int
+    {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->actingAs($this->user)->get(route('mypage'))->assertOk();
+        $count = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $count;
+    }
+
     public function test_does_not_cause_n_plus_one_queries(): void
     {
-        foreach (range(1, 5) as $i) {
+        $this->addReservation('2026-11-01 12:00:00');
+        $this->addReservation('2026-09-01 12:00:00');
+        $oneReservation = $this->mypageQueryCount();
+
+        foreach (range(2, 5) as $i) {
             $this->addReservation("2026-11-0{$i} 12:00:00");
+            $this->addReservation("2026-09-0{$i} 12:00:00");
         }
-        $this->actingAs($this->user);
 
-        DB::enableQueryLog();
-        $this->get(route('mypage'))->assertOk();
-        $queryCount = count(DB::getQueryLog());
-
-        // 予約5件でも件数に比例して増えない（認証・予約2回・関連・お気に入り・セッション等）
-        $this->assertLessThan(30, $queryCount);
+        // 今後・過去それぞれ1件のときと5件のときで、クエリ数が同じ（件数に比例して増えない）
+        $this->assertSame($oneReservation, $this->mypageQueryCount());
     }
 }

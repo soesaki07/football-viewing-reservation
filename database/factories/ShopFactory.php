@@ -45,7 +45,7 @@ class ShopFactory extends Factory
             'opening_time' => $businessHours[0],
             'closing_time' => $businessHours[1],
             'website_url' => null,
-            'status' => random_int(1, 100) <= 80 ? 'published' : 'draft',
+            'status' => random_int(1, 100) <= 80 ? Shop::STATUS_PUBLISHED : Shop::STATUS_DRAFT,
             'deleted_at' => null,
         ];
     }

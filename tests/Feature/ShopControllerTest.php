@@ -112,7 +112,7 @@ class ShopControllerTest extends TestCase
 
     public function test_show_returns_404_for_draft_shop(): void
     {
-        $shop = $this->createShop(['status' => 'draft']);
+        $shop = $this->createShop(['status' => Shop::STATUS_DRAFT]);
 
         $this->get(route('shops.show', $shop))->assertNotFound();
     }
@@ -215,7 +215,7 @@ class ShopControllerTest extends TestCase
         $this->createBroadcast($shop, $later);
         $this->createBroadcast($shop, $sooner);
         $this->createBroadcast($shop, $finished);
-        $this->createBroadcast($shop, $draft, 'draft');
+        $this->createBroadcast($shop, $draft, Broadcast::STATUS_DRAFT);
         $this->createBroadcast($otherShop, $otherShopMatch);
 
         $response = $this->get(route('shops.show', $shop));

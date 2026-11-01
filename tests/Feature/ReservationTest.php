@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\ReservationException;
 use App\Models\Broadcast;
 use App\Models\BroadcastSeatType;
 use App\Models\FootballMatch;
@@ -10,9 +11,12 @@ use App\Models\SeatType;
 use App\Models\Shop;
 use App\Models\User;
 use App\Services\ReservationService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use PDOException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\CreatesFootballMatches;
 use Tests\TestCase;
@@ -177,6 +181,49 @@ class ReservationTest extends TestCase
         $this->assertSame(6000, $reservation->total_price);
     }
 
+    public function test_reservation_protected_columns_are_not_mass_assignable(): void
+    {
+        $other = User::factory()->create();
+
+        // 予約者・金額・予約コード・状態・予約日時は、一括代入で送っても反映されない
+        $reservation = new Reservation([
+            'broadcast_seat_type_id' => $this->seatType->id,
+            'number_of_people' => 2,
+            'user_id' => $other->id,
+            'status' => Reservation::STATUS_VISITED,
+            'unit_price' => 1,
+            'total_price' => 1,
+            'reservation_code' => 'HACKED22',
+            'reserved_at' => '2000-01-01 00:00:00',
+        ]);
+
+        $this->assertSame(2, $reservation->number_of_people);
+        $this->assertNull($reservation->user_id);
+        $this->assertNull($reservation->status);
+        $this->assertNull($reservation->unit_price);
+        $this->assertNull($reservation->total_price);
+        $this->assertNull($reservation->reservation_code);
+        $this->assertNull($reservation->reserved_at);
+    }
+
+    public function test_service_sets_protected_columns_explicitly(): void
+    {
+        $reservation = app(ReservationService::class)->reserve($this->user, $this->broadcast, $this->seatType->id, 2, null);
+
+        $fresh = Reservation::findOrFail($reservation->id);
+        $this->assertSame($this->user->id, $fresh->user_id);
+        $this->assertSame(Reservation::STATUS_CONFIRMED, $fresh->status);
+        $this->assertSame(3000, $fresh->unit_price);
+        $this->assertSame(6000, $fresh->total_price);
+        $this->assertSame(8, strlen($fresh->reservation_code));
+        $this->assertTrue($fresh->reserved_at->equalTo(now()));
+
+        // キャンセルも status を明示して更新する
+        $cancelled = app(ReservationService::class)->cancel($fresh);
+        $this->assertSame(Reservation::STATUS_CANCELLED, $cancelled->fresh()->status);
+        $this->assertNotNull($cancelled->fresh()->cancelled_at);
+    }
+
     public function test_note_is_optional(): void
     {
         $this->confirmAndStore(input: ['customer_note' => null]);
@@ -246,7 +293,7 @@ class ReservationTest extends TestCase
 
         $this->actingAs($this->user)
             ->post(route('reservations.confirm', $this->broadcast), $this->input(['number_of_people' => 2]))
-            ->assertSessionHasErrors('number_of_people');
+            ->assertSessionHasErrors(['number_of_people' => '残席は1席です。']);
     }
 
     public function test_confirm_rejects_sold_out_seat_type(): void
@@ -255,7 +302,7 @@ class ReservationTest extends TestCase
 
         $this->actingAs($this->user)
             ->post(route('reservations.confirm', $this->broadcast), $this->input(['number_of_people' => 1]))
-            ->assertSessionHasErrors('number_of_people');
+            ->assertSessionHasErrors(['number_of_people' => '残席は0席です。']);
     }
 
     public function test_confirm_rejects_inactive_seat_types(): void
@@ -266,7 +313,7 @@ class ReservationTest extends TestCase
         foreach ([$inactiveBroadcastSeatType, $inactiveSeatType] as $seatType) {
             $this->actingAs($this->user)
                 ->post(route('reservations.confirm', $this->broadcast), $this->input(['broadcast_seat_type_id' => $seatType->id]))
-                ->assertSessionHasErrors('broadcast_seat_type_id');
+                ->assertSessionHasErrors(['broadcast_seat_type_id' => '選択された座席種別は予約できません。']);
         }
     }
 
@@ -277,48 +324,101 @@ class ReservationTest extends TestCase
 
         $this->actingAs($this->user)
             ->post(route('reservations.confirm', $this->broadcast), $this->input(['broadcast_seat_type_id' => $otherSeatType->id]))
-            ->assertSessionHasErrors('broadcast_seat_type_id');
+            ->assertSessionHasErrors(['broadcast_seat_type_id' => '選択された座席種別は予約できません。']);
+    }
+
+    public function test_confirm_accepts_people_exactly_at_max_per_reservation(): void
+    {
+        // 1回の上限ちょうど（4人）は通る
+        $this->assertSame(4, $this->seatType->max_people_per_reservation);
+
+        $this->actingAs($this->user)
+            ->post(route('reservations.confirm', $this->broadcast), $this->input(['number_of_people' => 4]))
+            ->assertOk()
+            ->assertSessionHasNoErrors();
+        $this->actingAs($this->user)->post(route('reservations.store', $this->broadcast))
+            ->assertRedirect(route('reservations.complete', Reservation::sole()));
+
+        $this->assertSame(4, Reservation::sole()->number_of_people);
+        $this->assertSame(12000, Reservation::sole()->total_price);
+    }
+
+    public function test_confirm_rejects_people_over_max_per_reservation_with_reason(): void
+    {
+        $this->actingAs($this->user)
+            ->post(route('reservations.confirm', $this->broadcast), $this->input(['number_of_people' => 5]))
+            ->assertSessionHasErrors(['number_of_people' => '1回の予約は4人までです。']);
+    }
+
+    public function test_store_rejects_people_over_max_per_reservation(): void
+    {
+        // 確認画面を通らずセッションに入力値を直接入れても、確定時に上限が確認される
+        $this->actingAs($this->user)
+            ->withSession(['reservation_input.'.$this->broadcast->id => $this->input(['number_of_people' => 5])])
+            ->post(route('reservations.store', $this->broadcast))
+            ->assertRedirect(route('reservations.create', $this->broadcast))
+            ->assertSessionHas('error', '人数は1人以上4人以下で指定してください。');
+
+        $this->assertSame(0, Reservation::count());
+    }
+
+    public function test_store_rejects_seat_type_of_another_broadcast(): void
+    {
+        $otherBroadcast = $this->createBroadcast($this->createFootballMatch());
+        $otherSeatType = $this->addSeatType($otherBroadcast, 10, 3000);
+
+        // 確認画面を通らずセッションに入力値を直接入れても、確定時に拒否される
+        $this->actingAs($this->user)
+            ->withSession(['reservation_input.'.$this->broadcast->id => $this->input(['broadcast_seat_type_id' => $otherSeatType->id])])
+            ->post(route('reservations.store', $this->broadcast))
+            ->assertRedirect(route('reservations.create', $this->broadcast))
+            ->assertSessionHas('error', '選択された座席種別は予約できません。');
+
+        $this->assertSame(0, Reservation::count());
     }
 
     // ---- 予約できない放映 ----
 
     /**
-     * @return array<string, array{0: callable(self): Broadcast}>
+     * @return array<string, array{0: callable(self): Broadcast, 1: string}>
      */
     public static function unreservableBroadcasts(): array
     {
         return [
-            '受付前' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(), [], ['reservation_start_at' => now()->addMinute()])],
-            '受付終了' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(), [], ['reservation_end_at' => now()->subMinute()])],
-            '放映が非公開' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(), [], ['status' => 'draft'])],
-            '店舗が非公開' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(), ['status' => 'draft'])],
-            '店舗が削除済み' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(), ['deleted_at' => now()])],
-            '試合が終了' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(['status' => 'FINISHED']))],
-            'キックオフから3時間経過' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(['kickoff_at' => now()->subHours(3)]))],
+            '受付前' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(), [], ['reservation_start_at' => now()->addMinute()]), '予約の受付はまだ始まっていません。'],
+            '受付終了' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(), [], ['reservation_end_at' => now()->subMinute()]), '予約の受付は終了しました。'],
+            '放映が非公開' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(), [], ['status' => Broadcast::STATUS_DRAFT]), 'この放映は現在予約できません。'],
+            '店舗が非公開' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(), ['status' => Shop::STATUS_DRAFT]), 'この放映は現在予約できません。'],
+            '店舗が削除済み' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(), ['deleted_at' => now()]), 'この放映は現在予約できません。'],
+            '試合が終了' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(['status' => 'FINISHED'])), '試合が終了しているため予約できません。'],
+            'キックオフから3時間経過' => [fn (self $t) => $t->createBroadcast($t->createFootballMatch(['kickoff_at' => now()->subHours(3)])), '試合が終了しているため予約できません。'],
         ];
     }
 
     /**
      * @param  callable(self): Broadcast  $factory
+     * @param  string  $storeMessage  確定時（store）に表示される拒否の理由
      */
     #[DataProvider('unreservableBroadcasts')]
-    public function test_unreservable_broadcast_is_rejected_everywhere(callable $factory): void
+    public function test_unreservable_broadcast_is_rejected_everywhere(callable $factory, string $storeMessage): void
     {
         $broadcast = $factory($this);
         $seatType = $this->addSeatType($broadcast, 10, 3000);
         $input = $this->input(['broadcast_seat_type_id' => $seatType->id]);
 
         $this->actingAs($this->user)->get(route('reservations.create', $broadcast))
-            ->assertRedirect(route('matches.show', $broadcast->football_match_id));
+            ->assertRedirect(route('matches.show', $broadcast->football_match_id))
+            ->assertSessionHas('error', 'この放映は現在予約できません。');
         $this->actingAs($this->user)->post(route('reservations.confirm', $broadcast), $input)
-            ->assertRedirect(route('matches.show', $broadcast->football_match_id));
+            ->assertRedirect(route('matches.show', $broadcast->football_match_id))
+            ->assertSessionHas('error', 'この放映は現在予約できません。');
 
         // 確認画面を通らずセッションに入力値を直接入れても、確定時に拒否される
         $this->actingAs($this->user)
             ->withSession(['reservation_input.'.$broadcast->id => $input])
             ->post(route('reservations.store', $broadcast))
             ->assertRedirect(route('reservations.create', $broadcast))
-            ->assertSessionHas('error');
+            ->assertSessionHas('error', $storeMessage);
         $this->assertSame(0, Reservation::count());
     }
 
@@ -337,7 +437,7 @@ class ReservationTest extends TestCase
     {
         $this->actingAs($this->user)->post(route('reservations.store', $this->broadcast))
             ->assertRedirect(route('reservations.create', $this->broadcast))
-            ->assertSessionHas('error');
+            ->assertSessionHas('error', '入力内容が見つかりません。もう一度入力してください。');
 
         $this->assertSame(0, Reservation::count());
     }
@@ -350,7 +450,7 @@ class ReservationTest extends TestCase
 
         $this->actingAs($this->user)->post(route('reservations.store', $this->broadcast))
             ->assertRedirect(route('reservations.create', $this->broadcast))
-            ->assertSessionHas('error');
+            ->assertSessionHas('error', '残席が足りないため予約できません。');
 
         $this->assertSame(1, Reservation::count());
     }
@@ -361,12 +461,14 @@ class ReservationTest extends TestCase
         // 確認画面のあとに受付が終了した
         $this->broadcast->update(['reservation_end_at' => now()->subMinute()]);
 
-        $this->actingAs($this->user)->post(route('reservations.store', $this->broadcast))->assertSessionHas('error');
+        $this->actingAs($this->user)->post(route('reservations.store', $this->broadcast))
+            ->assertSessionHas('error', '予約の受付は終了しました。');
 
         $this->broadcast->update(['reservation_end_at' => now()->addDay()]);
         $this->match->update(['status' => 'FINISHED']);
 
-        $this->actingAs($this->user)->post(route('reservations.store', $this->broadcast))->assertSessionHas('error');
+        $this->actingAs($this->user)->post(route('reservations.store', $this->broadcast))
+            ->assertSessionHas('error', '試合が終了しているため予約できません。');
         $this->assertSame(0, Reservation::count());
     }
 
@@ -375,7 +477,8 @@ class ReservationTest extends TestCase
         $this->actingAs($this->user)->post(route('reservations.confirm', $this->broadcast), $this->input())->assertOk();
         $this->seatType->update(['is_active' => false]);
 
-        $this->actingAs($this->user)->post(route('reservations.store', $this->broadcast))->assertSessionHas('error');
+        $this->actingAs($this->user)->post(route('reservations.store', $this->broadcast))
+            ->assertSessionHas('error', '選択された座席種別は予約できません。');
 
         $this->assertSame(0, Reservation::count());
     }
@@ -388,11 +491,14 @@ class ReservationTest extends TestCase
         $this->actingAs($this->user)->post(route('reservations.confirm', $this->broadcast), $this->input(['number_of_people' => 1]))->assertOk();
         $this->actingAs($other)->post(route('reservations.confirm', $this->broadcast), $this->input(['number_of_people' => 1]))->assertOk();
 
-        $this->actingAs($this->user)->post(route('reservations.store', $this->broadcast))
+        // テストではセッションが共有されるため、確定時はそれぞれの入力値をセッションに入れ直す（確認画面を通った状態の再現）
+        $input = $this->input(['number_of_people' => 1]);
+        $sessionKey = 'reservation_input.'.$this->broadcast->id;
+        $this->actingAs($this->user)->withSession([$sessionKey => $input])->post(route('reservations.store', $this->broadcast))
             ->assertRedirect(route('reservations.complete', Reservation::where('user_id', $this->user->id)->sole()));
-        $this->actingAs($other)->post(route('reservations.store', $this->broadcast))
+        $this->actingAs($other)->withSession([$sessionKey => $input])->post(route('reservations.store', $this->broadcast))
             ->assertRedirect(route('reservations.create', $this->broadcast))
-            ->assertSessionHas('error');
+            ->assertSessionHas('error', '残席が足りないため予約できません。');
 
         $this->assertSame(0, Reservation::where('user_id', $other->id)->count());
         $this->assertSame(10, (int) Reservation::confirmed()->sum('number_of_people'));
@@ -479,7 +585,7 @@ class ReservationTest extends TestCase
     public function test_visited_and_no_show_reservations_do_not_block_same_match(): void
     {
         foreach ([Reservation::STATUS_VISITED, Reservation::STATUS_NO_SHOW] as $status) {
-            $this->addReservation($this->seatType, 1, $this->user)->update(['status' => $status]);
+            $this->addReservation($this->seatType, 1, $this->user)->forceFill(['status' => $status])->save();
         }
         $service = new ReservationService;
 
@@ -568,7 +674,7 @@ class ReservationTest extends TestCase
 
     public function test_reservation_code_is_regenerated_when_duplicated(): void
     {
-        $this->addReservation($this->seatType, 1)->update(['reservation_code' => 'AAAAAAAA']);
+        $this->addReservation($this->seatType, 1)->forceFill(['reservation_code' => 'AAAAAAAA'])->save();
         $service = new class extends ReservationService
         {
             /** @var list<string> */
@@ -669,23 +775,115 @@ class ReservationTest extends TestCase
         $this->assertSame(1, Reservation::count());
     }
 
-    public function test_code_failure_after_three_collisions_is_logged_without_code(): void
+    public function test_code_failure_after_max_collisions_is_logged_without_code(): void
     {
         $existing = $this->addReservation($this->seatType, 1);
         $code = $existing->reservation_code;
-        $this->fakeReservationCodes([$code, $code, $code], 3);
+        $max = ReservationService::MAX_CODE_ATTEMPTS;
+        $this->fakeReservationCodes(array_fill(0, $max, $code), $max);
+        Log::spy();
 
-        Log::shouldReceive('warning')
+        $this->confirmAndStore()->assertSessionHas('error');
+
+        Log::shouldHaveReceived('warning')
             ->once()
-            ->withArgs(function (string $message, array $context) use ($code) {
-                return $message === '予約コードの発行に3回失敗しました。'
-                    && $context['attempts'] === 3
+            ->withArgs(function (string $message, array $context) use ($code, $max) {
+                return $message === "予約コードの発行に{$max}回失敗しました。"
+                    && $context['attempts'] === $max
                     && $context['user_id'] === $this->user->id
                     && $context['broadcast_seat_type_id'] === $this->seatType->id
                     && ! str_contains(json_encode($context), $code);
             });
+    }
 
-        $this->confirmAndStore()->assertSessionHas('error');
+    public function test_no_warning_is_logged_when_reservation_succeeds(): void
+    {
+        Log::spy();
+
+        $this->confirmAndStore()->assertRedirect(route('reservations.complete', Reservation::sole()));
+
+        Log::shouldNotHaveReceived('warning');
+    }
+
+    /**
+     * @return array<string, array{string, bool}>
+     */
+    public static function uniqueViolationMessages(): array
+    {
+        return [
+            'MySQL の予約コード' => ["SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'ABCD2345' for key 'reservations.reservations_reservation_code_unique'", true],
+            'SQLite の予約コード' => ['SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: reservations.reservation_code', true],
+            'MySQL の予約コード以外' => ["SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry '1-2' for key 'reservations.reservations_user_id_match_unique'", false],
+            'SQLite の予約コード以外' => ['SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: reservations.user_id, reservations.football_match_id', false],
+        ];
+    }
+
+    #[DataProvider('uniqueViolationMessages')]
+    public function test_only_reservation_code_unique_violation_is_retried(string $driverMessage, bool $isCodeViolation): void
+    {
+        // 1回目の INSERT だけ、指定したエラー文の UNIQUE 違反にする（QueryException のメッセージには SQL の列名 reservation_code も入る）
+        $calls = 0;
+        Reservation::creating(function () use (&$calls, $driverMessage) {
+            $calls++;
+            if ($calls === 1) {
+                throw new UniqueConstraintViolationException(
+                    'mysql',
+                    'insert into `reservations` (`reservation_code`, `user_id`) values (?, ?)',
+                    [],
+                    new PDOException($driverMessage),
+                );
+            }
+        });
+        $this->fakeReservationCodes(['NEWCKDE5', 'NEWCKDE6'], $isCodeViolation ? 2 : 1);
+
+        try {
+            $reservation = app(ReservationService::class)->reserve($this->user, $this->broadcast, $this->seatType->id, 1, null);
+
+            // 予約コードの重複なら、新しいコードで作り直して成功する
+            $this->assertTrue($isCodeViolation);
+            $this->assertSame('NEWCKDE6', $reservation->reservation_code);
+            $this->assertSame(2, $calls);
+        } catch (UniqueConstraintViolationException) {
+            // 予約コード以外の違反は、再試行せずにそのまま投げ直す
+            $this->assertFalse($isCodeViolation);
+            $this->assertSame(1, $calls);
+            $this->assertSame(0, Reservation::count());
+        } finally {
+            Event::forget('eloquent.creating: '.Reservation::class);
+        }
+    }
+
+    public function test_reservation_code_generation_stops_at_max_generations(): void
+    {
+        $existing = $this->addReservation($this->seatType, 1);
+        $service = new class($existing->reservation_code) extends ReservationService
+        {
+            public int $generated = 0;
+
+            public function __construct(private readonly string $code) {}
+
+            protected function randomCode(): string
+            {
+                $this->generated++;
+
+                return $this->code;
+            }
+        };
+        Log::spy();
+
+        try {
+            $service->generateReservationCode();
+            $this->fail('ReservationException が投げられるはずです。');
+        } catch (ReservationException $e) {
+            $this->assertSame(ReservationService::CODE_ISSUE_FAILED_MESSAGE, $e->getMessage());
+        }
+
+        // 無限ループせず、上限の回数で打ち切って警告を残す
+        $this->assertSame(ReservationService::MAX_CODE_GENERATIONS, $service->generated);
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->withArgs(fn (string $message, array $context) => $context === ['attempts' => ReservationService::MAX_CODE_GENERATIONS]
+                && ! str_contains(json_encode($context), $existing->reservation_code));
     }
 
     // ---- 試合詳細の「予約済み」 ----
@@ -710,7 +908,30 @@ class ReservationTest extends TestCase
 
         $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
             ->assertSee('予約済み')
-            ->assertSee(route('reservations.show', $reservation), false);
+            ->assertSee(route('reservations.show', $reservation), false)
+            ->assertDontSee('予約する');
+    }
+
+    public function test_match_show_prefers_reserved_badge_over_closed_and_before_period(): void
+    {
+        $reservation = $this->addReservation($this->seatType, 1, $this->user);
+        $reservationUrl = route('reservations.show', $reservation);
+
+        // 受付終了
+        $this->broadcast->update(['reservation_start_at' => now()->subDay(), 'reservation_end_at' => now()->subHour()]);
+        $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
+            ->assertOk()
+            ->assertSee('予約済み')
+            ->assertSee($reservationUrl, false)
+            ->assertDontSee('予約する');
+
+        // 受付前
+        $this->broadcast->update(['reservation_start_at' => now()->addHour(), 'reservation_end_at' => now()->addDay()]);
+        $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
+            ->assertOk()
+            ->assertSee('予約済み')
+            ->assertSee($reservationUrl, false)
+            ->assertDontSee('予約する');
     }
 
     public function test_match_show_ignores_cancelled_and_other_users_reservations(): void
@@ -726,7 +947,7 @@ class ReservationTest extends TestCase
     #[DataProvider('nonConfirmedStatuses')]
     public function test_match_show_ignores_visited_and_no_show_reservations(string $status): void
     {
-        $this->addReservation($this->seatType, 1, $this->user)->update(['status' => $status]);
+        $this->addReservation($this->seatType, 1, $this->user)->forceFill(['status' => $status])->save();
 
         $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
             ->assertDontSee('予約済み')
@@ -758,7 +979,21 @@ class ReservationTest extends TestCase
     {
         $this->addReservation($this->seatType, 1, $this->user);
         // 予約した店舗が非公開になり、一覧に出なくなった
-        $this->broadcast->shop->update(['status' => 'draft']);
+        $this->broadcast->shop->update(['status' => Shop::STATUS_DRAFT]);
+        $otherBroadcast = $this->createBroadcast($this->match);
+        $this->addSeatType($otherBroadcast, 10, 3000);
+
+        $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
+            ->assertOk()
+            ->assertDontSee('予約する')
+            ->assertDontSee('予約済み');
+    }
+
+    public function test_match_show_hides_reserve_button_when_reserved_shop_is_deleted(): void
+    {
+        $this->addReservation($this->seatType, 1, $this->user);
+        // 予約した店舗が削除された（deleted_at）。非公開と同じく一覧に出なくなる
+        $this->broadcast->shop->delete();
         $otherBroadcast = $this->createBroadcast($this->match);
         $this->addSeatType($otherBroadcast, 10, 3000);
 

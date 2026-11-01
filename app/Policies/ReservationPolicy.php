@@ -10,10 +10,11 @@ class ReservationPolicy
 {
     /**
      * 予約は、予約した本人だけが見られる。他人の予約は存在を隠すため 404 にする。
+     * user_id は DB ドライバによって文字列で返ることがあるため、型をそろえて比べる（本人が 404 にならないように）。
      */
     public function view(User $user, Reservation $reservation): Response
     {
-        return $user->id === $reservation->user_id
+        return (int) $user->id === (int) $reservation->user_id
             ? Response::allow()
             : Response::denyAsNotFound();
     }
@@ -24,7 +25,7 @@ class ReservationPolicy
      */
     public function cancel(User $user, Reservation $reservation): Response
     {
-        return $user->id === $reservation->user_id
+        return (int) $user->id === (int) $reservation->user_id
             ? Response::allow()
             : Response::denyAsNotFound();
     }
@@ -43,7 +44,7 @@ class ReservationPolicy
         // shop は SoftDeletes のため、削除済みの店舗は null になり 404 になる（一覧にも出ない）
         $shop = $reservation->broadcastSeatType->broadcast->shop;
 
-        return $shop !== null && $shop->user_id === $user->id
+        return $shop !== null && (int) $shop->user_id === (int) $user->id
             ? Response::allow()
             : Response::denyAsNotFound();
     }

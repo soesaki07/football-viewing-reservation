@@ -61,15 +61,10 @@ class Reservation extends Model
 
     public const STATUS_NO_SHOW = 'no_show';
 
+    // 予約者・金額・予約コード・状態・予約日時は一括代入できない。ReservationService の中で forceFill により明示して設定する
     protected $fillable = [
-        'reservation_code',
-        'user_id',
         'broadcast_seat_type_id',
         'number_of_people',
-        'unit_price',
-        'total_price',
-        'status',
-        'reserved_at',
         'cancelled_at',
         'visited_at',
         'customer_note',

@@ -25,7 +25,7 @@ class ShopSeederTest extends TestCase
             $this->assertSame(1, Shop::where('user_id', $owner->id)->count());
         }
         foreach (Shop::all() as $shop) {
-            $this->assertContains($shop->status, ['draft', 'published']);
+            $this->assertContains($shop->status, [Shop::STATUS_DRAFT, Shop::STATUS_PUBLISHED]);
             $this->assertNotEmpty($shop->description);
         }
     }
