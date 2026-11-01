@@ -143,3 +143,8 @@
 - 症状：worktree で追加した migration が読まれず `no such table: cache_locks` になる。worktree のテストなのに、メインのコードで動く。
 - 原因：Composer の autoload はシンボリックリンクを解決した実パスを基準にするため、`base_path()` がメインの作業フォルダになる。
 - 対処：worktree の `vendor` はコピーする（または `composer install`）。Sail のコンテナとテスト用 DB はメインの作業フォルダが使うので、worktree のテストはホストの PHP と SQLite のメモリ DB で実行し、MySQL での確認は CI で行う。
+
+### Sail のテストを2つ同時に実行すると、関係のないテストが大量に落ちる
+- 症状：`SQLSTATE[42S22]: Column not found: 1054 Unknown column 'name_ja' in 'order clause' (Connection: mysql, Host: mysql, Port: 3306, Database: testing, ...)` などの SQL エラーで、今回の変更と関係のないテストが大量に失敗・エラーになる（例：失敗 1件・エラー 41件）。もう一度1つだけ実行すると、すべて通る。2026-11-01、B の2回目のレビューと C の1回目のレビューを同時に回したときに起きた（#62）。
+- 原因（推定）：Sail のテストは、どれも同じテスト用 DB（`testing`）を使う。2つのテストを同時に実行すると、片方の `RefreshDatabase` がテーブルを作り直している間に、もう片方のテストが動く。
+- 対処：Sail のテストは同時に1つだけ実行する。レビューを同時に頼むときは、テストを実行するのは片方だけにし、もう片方はテストを実行せずに「未実施（もう片方で実施）」と報告する。テストのためにリポジトリのコピーを作らない（worktree・clone には未コミットのレビュー対象が入らず、変更のないコードでテストが通ってしまう。作業フォルダごとコピーすると `.env` の秘密情報も複製される）。
