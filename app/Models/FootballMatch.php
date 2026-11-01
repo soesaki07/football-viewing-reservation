@@ -82,6 +82,9 @@ class FootballMatch extends Model
         ];
     }
 
+    // 終了とみなす status（isFinished と、放映登録の試合の絞り込みで共通に使う）
+    public const FINISHED_STATUSES = ['FINISHED', 'AWARDED', 'CANCELLED'];
+
     private const STATUS_LABELS = [
         'SCHEDULED' => ['label' => '開催前', 'class' => 'bg-pitch-100 text-pitch-700'],
         'TIMED' => ['label' => '開催前', 'class' => 'bg-pitch-100 text-pitch-700'],
@@ -166,7 +169,7 @@ class FootballMatch extends Model
      */
     public function isFinished(): bool
     {
-        return in_array($this->status, ['FINISHED', 'AWARDED', 'CANCELLED'], true)
+        return in_array($this->status, self::FINISHED_STATUSES, true)
             || $this->kickoff_at->copy()->addHours(3)->lte(now());
     }
 }
