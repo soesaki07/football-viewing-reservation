@@ -103,7 +103,7 @@ class ReservationShowTest extends TestCase
 
     public function test_cancelled_reservation_shows_cancelled_label(): void
     {
-        $this->reservation->update(['status' => Reservation::STATUS_CANCELLED, 'cancelled_at' => now()]);
+        $this->reservation->forceFill(['status' => Reservation::STATUS_CANCELLED, 'cancelled_at' => now()])->save();
 
         $this->actingAs($this->user)->get(route('reservations.show', $this->reservation))
             ->assertOk()
@@ -112,10 +112,10 @@ class ReservationShowTest extends TestCase
 
     public function test_status_label_for_each_status(): void
     {
-        $this->assertSame('予約確定', (new Reservation(['status' => Reservation::STATUS_CONFIRMED]))->statusLabel());
-        $this->assertSame('キャンセル済み', (new Reservation(['status' => Reservation::STATUS_CANCELLED]))->statusLabel());
-        $this->assertSame('来店済み', (new Reservation(['status' => Reservation::STATUS_VISITED]))->statusLabel());
-        $this->assertSame('来店なし', (new Reservation(['status' => Reservation::STATUS_NO_SHOW]))->statusLabel());
-        $this->assertSame('unknown', (new Reservation(['status' => 'unknown']))->statusLabel());
+        $this->assertSame('予約確定', (new Reservation)->forceFill(['status' => Reservation::STATUS_CONFIRMED])->statusLabel());
+        $this->assertSame('キャンセル済み', (new Reservation)->forceFill(['status' => Reservation::STATUS_CANCELLED])->statusLabel());
+        $this->assertSame('来店済み', (new Reservation)->forceFill(['status' => Reservation::STATUS_VISITED])->statusLabel());
+        $this->assertSame('来店なし', (new Reservation)->forceFill(['status' => Reservation::STATUS_NO_SHOW])->statusLabel());
+        $this->assertSame('unknown', (new Reservation)->forceFill(['status' => 'unknown'])->statusLabel());
     }
 }

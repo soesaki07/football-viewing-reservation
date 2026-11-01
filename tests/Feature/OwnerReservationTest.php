@@ -9,8 +9,11 @@ use App\Models\Reservation;
 use App\Models\SeatType;
 use App\Models\Shop;
 use App\Models\User;
+use App\Policies\ShopPolicy;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Tests\Concerns\CreatesFootballMatches;
 use Tests\TestCase;
 
@@ -117,6 +120,33 @@ class OwnerReservationTest extends TestCase
         $this->actingAs($this->owner)->get(route('owner.reservations.index', ['shop' => $otherShop->id]))->assertNotFound();
     }
 
+    public function test_other_owners_shop_returns_404_even_if_policy_allows_everything(): void
+    {
+        // Policy が常に許可しても、自分の店舗の中から探すため他のオーナーの店舗は 404（多層防御）
+        $policy = new class extends ShopPolicy
+        {
+            public function viewReservations(User $user, Shop $shop): Response
+            {
+                return Response::allow();
+            }
+        };
+        $this->app->instance($policy::class, $policy);
+        Gate::policy(Shop::class, $policy::class);
+        $otherShop = Shop::factory()->create(['user_id' => User::factory()->shopOwner()->create()->id]);
+
+        $this->actingAs($this->owner)->get(route('owner.reservations.index', ['shop' => $otherShop->id]))->assertNotFound();
+        $this->actingAs($this->owner)->get(route('owner.reservations.index', ['shop' => $this->shop->id]))->assertOk();
+    }
+
+    public function test_shop_policy_allows_owner_even_when_user_id_is_string(): void
+    {
+        $shop = (new Shop)->forceFill(['user_id' => (string) $this->owner->id]);
+        $policy = new ShopPolicy;
+
+        $this->assertTrue($policy->viewReservations($this->owner, $shop)->allowed());
+        $this->assertTrue($policy->viewReservations(User::factory()->shopOwner()->create(), $shop)->denied());
+    }
+
     public function test_missing_and_deleted_shop_return_404(): void
     {
         $deleted = Shop::factory()->create(['user_id' => $this->owner->id]);
@@ -133,7 +163,7 @@ class OwnerReservationTest extends TestCase
             ->assertOk()
             ->assertDontSee('aria-label="店舗の切り替え"', false);
 
-        $second = Shop::factory()->create(['user_id' => $this->owner->id, 'name' => 'バーB', 'status' => 'draft']);
+        $second = Shop::factory()->create(['user_id' => $this->owner->id, 'name' => 'バーB', 'status' => Shop::STATUS_DRAFT]);
         $this->addReservation($second, reservationState: ['reservation_code' => 'SECOND99']);
         $this->addReservation($this->shop, reservationState: ['reservation_code' => 'FIRST111']);
 

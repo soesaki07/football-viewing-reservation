@@ -50,6 +50,8 @@ class Broadcast extends Model
 
     public const STATUS_PUBLISHED = 'published';
 
+    public const STATUS_DRAFT = 'draft';
+
     protected $fillable = [
         'shop_id',
         'football_match_id',

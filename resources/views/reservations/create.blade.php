@@ -29,7 +29,7 @@
                     <label class="flex items-center justify-between gap-3 rounded-lg border border-pitch-100 p-3 {{ $remaining > 0 ? 'cursor-pointer' : 'bg-gray-50 text-gray-500' }}">
                         <span class="flex items-center gap-3">
                             <input type="radio" name="broadcast_seat_type_id" value="{{ $seatType->id }}"
-                                   data-price="{{ $seatType->price }}" data-max="{{ min($seatType->max_people_per_reservation, $remaining) }}"
+                                   data-price="{{ $seatType->price }}"
                                    @checked($selectedSeatType === $seatType->id) @disabled($remaining < 1)>
                             <span class="font-bold">{{ $seatType->seatType->name }}</span>
                         </span>

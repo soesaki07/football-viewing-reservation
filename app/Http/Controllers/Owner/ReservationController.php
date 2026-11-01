@@ -44,12 +44,15 @@ class ReservationController extends Controller
             return view('owner.reservations.index', compact('shops', 'hasFavoriteTeams', 'showFavoriteOnly'));
         }
 
-        // ?shop= の指定があれば、存在しない・削除済みは 404、他のオーナーの店舗は Policy で 404
+        // ?shop= の指定があれば、取得済みの自分の店舗の中から探す。
+        // 存在しない・削除済み・他のオーナーの店舗は見つからず 404（Policy を外す変更があっても他店を参照できない）
         if ($request->filled('shop')) {
-            $shop = Shop::query()->findOrFail($request->integer('shop'));
+            $shop = $shops->firstWhere('id', $request->integer('shop'));
+            abort_if($shop === null, 404);
         } else {
             $shop = $shops->firstOrFail();
         }
+        // 多層防御として Policy でも確かめる
         Gate::authorize('viewReservations', $shop);
 
         $period = $request->query('period') === self::PERIOD_PAST ? self::PERIOD_PAST : self::PERIOD_UPCOMING;

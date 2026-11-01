@@ -395,7 +395,8 @@ class MatchControllerTest extends TestCase
         static $code = 0;
         $code++;
 
-        return Reservation::create([
+        // user_id・金額・状態などは一括代入できないため、unguarded で明示して作る
+        return Reservation::unguarded(fn () => Reservation::create([
             'reservation_code' => 'TEST'.$code,
             'user_id' => User::factory()->create()->id,
             'broadcast_seat_type_id' => $seatType->id,
@@ -404,7 +405,7 @@ class MatchControllerTest extends TestCase
             'total_price' => $seatType->price * $people,
             'status' => $status,
             'reserved_at' => now(),
-        ]);
+        ]));
     }
 
     public function test_show_displays_broadcast_shop_with_price_and_seats(): void
@@ -476,14 +477,14 @@ class MatchControllerTest extends TestCase
         $visible = $this->createShopFor($match, '表示される店');
         $this->addSeatType($visible, 5, 3000);
 
-        $draftShop = $this->createShopFor($match, '非公開の店', ['status' => 'draft']);
+        $draftShop = $this->createShopFor($match, '非公開の店', ['status' => Shop::STATUS_DRAFT]);
         $this->addSeatType($draftShop, 5, 3000);
 
         $deletedShop = $this->createShopFor($match, '削除済みの店');
         $this->addSeatType($deletedShop, 5, 3000);
         $deletedShop->shop->delete();
 
-        $draftBroadcast = $this->createShopFor($match, '非公開放映の店', [], ['status' => 'draft']);
+        $draftBroadcast = $this->createShopFor($match, '非公開放映の店', [], ['status' => Broadcast::STATUS_DRAFT]);
         $this->addSeatType($draftBroadcast, 5, 3000);
 
         $inactiveBroadcastSeat = $this->createShopFor($match, '放映座席無効の店');

@@ -20,7 +20,7 @@ class BroadcastFactory extends Factory
     {
         return [
             'title' => null,
-            'status' => random_int(1, 100) <= 80 ? 'published' : 'draft',
+            'status' => random_int(1, 100) <= 80 ? Broadcast::STATUS_PUBLISHED : Broadcast::STATUS_DRAFT,
             'notes' => null,
         ];
     }

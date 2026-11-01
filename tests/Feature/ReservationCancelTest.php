@@ -13,6 +13,7 @@ use App\Services\ReservationService;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -196,7 +197,7 @@ class ReservationCancelTest extends TestCase
     #[DataProvider('nonConfirmedStatuses')]
     public function test_cannot_cancel_non_confirmed_reservation(string $status): void
     {
-        $this->reservation->update(['status' => $status]);
+        $this->reservation->forceFill(['status' => $status])->save();
 
         $this->cancel()->assertSessionHas('error', 'この予約はキャンセルできません。');
         $this->assertSame($status, $this->reservation->refresh()->status);
@@ -213,8 +214,8 @@ class ReservationCancelTest extends TestCase
 
     public function test_can_cancel_when_shop_and_broadcast_are_unpublished(): void
     {
-        $this->shop->update(['status' => 'draft']);
-        $this->broadcast->update(['status' => 'draft', 'reservation_end_at' => now()->subHour()]);
+        $this->shop->update(['status' => Shop::STATUS_DRAFT]);
+        $this->broadcast->update(['status' => Broadcast::STATUS_DRAFT, 'reservation_end_at' => now()->subHour()]);
 
         $this->cancel()->assertSessionHas('success');
         $this->assertSame(Reservation::STATUS_CANCELLED, $this->reservation->refresh()->status);
@@ -243,16 +244,16 @@ class ReservationCancelTest extends TestCase
     #[DataProvider('nonConfirmedStatuses')]
     public function test_cancel_button_is_hidden_for_non_confirmed_reservation(string $status): void
     {
-        $this->reservation->update(['status' => $status]);
+        $this->reservation->forceFill(['status' => $status])->save();
 
         $this->actingAs($this->user)->get(route('reservations.show', $this->reservation))
             ->assertOk()
             ->assertDontSee('この予約をキャンセルする');
     }
 
-    public function test_error_message_is_shown_on_detail_and_escaped(): void
+    public function test_error_message_is_shown_on_detail(): void
     {
-        $this->reservation->update(['status' => Reservation::STATUS_VISITED]);
+        $this->reservation->forceFill(['status' => Reservation::STATUS_VISITED])->save();
 
         $this->actingAs($this->user)->followingRedirects()
             ->patch(route('reservations.cancel', $this->reservation))
@@ -269,6 +270,17 @@ class ReservationCancelTest extends TestCase
         $response = $policy->cancel(User::factory()->create(), $this->reservation);
         $this->assertTrue($response->denied());
         $this->assertSame(404, $response->status());
+    }
+
+    public function test_policy_allows_owner_even_when_user_id_is_string(): void
+    {
+        // DB ドライバによって user_id が文字列で返っても、本人は許可される
+        $reservation = (new Reservation)->forceFill(['user_id' => (string) $this->user->id]);
+        $policy = new ReservationPolicy;
+
+        $this->assertTrue($policy->view($this->user, $reservation)->allowed());
+        $this->assertTrue($policy->cancel($this->user, $reservation)->allowed());
+        $this->assertTrue($policy->view(User::factory()->create(), $reservation)->denied());
     }
 
     public function test_cancel_is_denied_and_button_hidden_when_only_view_is_allowed(): void
@@ -306,7 +318,8 @@ class ReservationCancelTest extends TestCase
             $cancelled = app(ReservationService::class)->cancel($reservation);
         } finally {
             Model::preventLazyLoading(false);
-            Reservation::flushEventListeners();
+            // このテストで付けた retrieved のリスナーだけを外す（ほかのイベントは残す）
+            Event::forget('eloquent.retrieved: '.Reservation::class);
         }
 
         $this->assertTrue($cancelled->relationLoaded('broadcastSeatType'));

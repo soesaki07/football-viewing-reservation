@@ -52,7 +52,7 @@ class BroadcastSeederTest extends TestCase
 
         foreach (range(1, 20) as $i) {
             $broadcast = Broadcast::factory()->forMatch($this->createFootballMatch())->create(['shop_id' => $shop->id]);
-            $this->assertContains($broadcast->status, ['draft', 'published']);
+            $this->assertContains($broadcast->status, [Broadcast::STATUS_DRAFT, Broadcast::STATUS_PUBLISHED]);
         }
     }
 

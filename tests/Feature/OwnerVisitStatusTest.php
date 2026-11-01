@@ -270,6 +270,16 @@ class OwnerVisitStatusTest extends TestCase
         $this->assertTrue((new ReservationPolicy)->updateVisitStatus($this->owner, $reservation)->denied());
     }
 
+    public function test_policy_allows_shop_owner_even_when_shop_user_id_is_string(): void
+    {
+        // DB ドライバによって shop の user_id が文字列で返っても、そのオーナーは許可される
+        $reservation = $this->addReservation();
+        $reservation->load('broadcastSeatType.broadcast.shop');
+        $reservation->broadcastSeatType->broadcast->shop->user_id = (string) $this->owner->id;
+
+        $this->assertTrue((new ReservationPolicy)->updateVisitStatus($this->owner, $reservation)->allowed());
+    }
+
     public function test_guest_is_redirected_to_login(): void
     {
         $reservation = $this->addReservation();
@@ -349,7 +359,7 @@ class OwnerVisitStatusTest extends TestCase
         }
 
         // ボタンの文言：変更先が想定外、または今の予約状態が変更できない状態（cancelled）のときは例外
-        $reservation = new Reservation(['status' => Reservation::STATUS_CONFIRMED]);
+        $reservation = (new Reservation)->forceFill(['status' => Reservation::STATUS_CONFIRMED]);
         $this->assertSame('来店済み', $reservation->visitStatusButtonLabel(Reservation::STATUS_VISITED));
         $reservation->status = Reservation::STATUS_NO_SHOW;
         $this->assertSame('来店済みに変更', $reservation->visitStatusButtonLabel(Reservation::STATUS_VISITED));

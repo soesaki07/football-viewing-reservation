@@ -11,6 +11,14 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * 予約の作成と状態の変更（キャンセル・来店状態の更新）を担当する。
+ *
+ * 予約を作るとき、および状態を変えるとき（キャンセル・来店状態・confirmed に戻すことを含む）は、必ずこのサービスを通すこと。
+ * 二重予約の防止は、このサービスの中のロック（users → broadcast_seat_types、予約の行）だけで守っているため、
+ * コントローラーなどから Reservation を直接作成・更新すると、同時操作で二重予約や残席超過が起きる。
+ * なお user_id・status・金額・予約コード・予約日時は $fillable に含めていないため、forceFill で明示して設定する。
+ */
 class ReservationService
 {
     // 予約コードに使う文字（紛らわしい 0, O, 1, I を除く）
@@ -25,7 +33,12 @@ class ReservationService
     public const NOT_VISIT_STATUS_CHANGEABLE_MESSAGE = 'この予約の来店状態は変更できません。';
 
     // 予約コードが重複したときに、新しいコードで作り直す最大回数
-    private const MAX_CODE_ATTEMPTS = 3;
+    public const MAX_CODE_ATTEMPTS = 3;
+
+    // 重複しない予約コードを探す最大回数（8桁・32文字なら通常は1回で決まる。乱数の異常などで無限ループしないための上限）
+    public const MAX_CODE_GENERATIONS = 10;
+
+    public const CODE_ISSUE_FAILED_MESSAGE = '予約コードの発行に失敗しました。もう一度お試しください。';
 
     /**
      * 予約を確定する。金額は確定時点の価格からここで計算する。
@@ -86,36 +99,61 @@ class ReservationService
     }
 
     /**
-     * 予約コードを付けて予約を作る。コードが重複（UNIQUE 違反）したら、新しいコードで最大3回まで作り直す。
-     * reservations の UNIQUE 制約は reservation_code だけなので、UNIQUE 違反は予約コードの重複とみなす。
+     * 予約コードを付けて予約を作る。予約コードが重複（UNIQUE 違反）したら、新しいコードで最大 MAX_CODE_ATTEMPTS 回まで作り直す。
+     * 違反したのが予約コード以外の UNIQUE のときは、再試行せずにそのまま投げ直す。
      * 入れ子の DB::transaction()（セーブポイント）で失敗した INSERT だけを取り消し、
      * 外側のトランザクションとロックは保ったまま、作成だけを再試行する。
      *
      * @param  array<string, mixed>  $attributes  予約コード以外の属性
      *
-     * @throws ReservationException 3回とも予約コードが重複したとき
+     * @throws ReservationException MAX_CODE_ATTEMPTS 回とも予約コードが重複したとき
+     * @throws UniqueConstraintViolationException 予約コード以外の UNIQUE 違反のとき
      */
     private function createReservation(array $attributes): Reservation
     {
         for ($attempt = 1; $attempt <= self::MAX_CODE_ATTEMPTS; $attempt++) {
             try {
-                return DB::transaction(fn () => Reservation::create([
-                    'reservation_code' => $this->generateReservationCode(),
-                    ...$attributes,
-                ]));
-            } catch (UniqueConstraintViolationException) {
+                return DB::transaction(function () use ($attributes) {
+                    // user_id・status・金額などは $fillable に含めないため、forceFill で明示して設定する
+                    $reservation = (new Reservation)->forceFill([
+                        'reservation_code' => $this->generateReservationCode(),
+                        ...$attributes,
+                    ]);
+                    $reservation->save();
+
+                    return $reservation;
+                });
+            } catch (UniqueConstraintViolationException $e) {
+                // 予約コード以外の UNIQUE 違反は、再試行しても直らないのでそのまま投げ直す
+                if (! $this->isReservationCodeViolation($e)) {
+                    throw $e;
+                }
                 // 次の試行で新しいコードを発行する
             }
         }
 
         // 予約コードそのものや個人情報は出さず、調査に必要な ID だけ記録する
-        Log::warning('予約コードの発行に3回失敗しました。', [
+        Log::warning('予約コードの発行に'.self::MAX_CODE_ATTEMPTS.'回失敗しました。', [
             'attempts' => self::MAX_CODE_ATTEMPTS,
             'user_id' => $attributes['user_id'] ?? null,
             'broadcast_seat_type_id' => $attributes['broadcast_seat_type_id'] ?? null,
         ]);
 
-        throw new ReservationException('予約コードの発行に失敗しました。もう一度お試しください。');
+        throw new ReservationException(self::CODE_ISSUE_FAILED_MESSAGE);
+    }
+
+    /**
+     * UNIQUE 違反が予約コードのものか。DB ドライバが返した元のエラー文に列名（reservation_code）が含まれるかで見分ける。
+     * MySQL は「Duplicate entry '...' for key 'reservations.reservations_reservation_code_unique'」、
+     * SQLite は「UNIQUE constraint failed: reservations.reservation_code」のように、どちらも列名を含む。
+     * QueryException 自身のメッセージには実行した SQL（INSERT の列名に reservation_code を含む）が入るため、元の例外のメッセージを使う。
+     *
+     * 注意：reservations に UNIQUE のインデックスや、名前に reservation_code を含む列・インデックスを足すときは、
+     * この判定を見直すこと（エラー文に reservation_code が含まれるかで見分けているため）。
+     */
+    private function isReservationCodeViolation(UniqueConstraintViolationException $e): bool
+    {
+        return str_contains($e->getPrevious()?->getMessage() ?? '', 'reservation_code');
     }
 
     /**
@@ -137,10 +175,11 @@ class ReservationService
                 throw new ReservationException(self::NOT_CANCELLABLE_MESSAGE);
             }
 
-            $locked->update([
+            // status は $fillable に含めないため、forceFill で明示して設定する
+            $locked->forceFill([
                 'status' => Reservation::STATUS_CANCELLED,
                 'cancelled_at' => now()->utc(),
-            ]);
+            ])->save();
 
             return $locked;
         });
@@ -165,10 +204,11 @@ class ReservationService
                 throw new ReservationException(self::NOT_VISIT_STATUS_CHANGEABLE_MESSAGE);
             }
 
-            $locked->update([
+            // status は $fillable に含めないため、forceFill で明示して設定する
+            $locked->forceFill([
                 'status' => $status,
                 'visited_at' => $status === Reservation::STATUS_VISITED ? now()->utc() : null,
-            ]);
+            ])->save();
 
             return $locked;
         });
@@ -188,14 +228,25 @@ class ReservationService
 
     /**
      * 重複しない予約コード（英大文字と数字の8桁）を発行する。
+     * 重複を避けて探すのは最大 MAX_CODE_GENERATIONS 回まで。上限を超えたら、予約コードの発行に失敗した扱い（ログ＋ReservationException）にする。
+     *
+     * @throws ReservationException 上限回数を超えても重複しないコードが見つからなかったとき
      */
     public function generateReservationCode(): string
     {
-        do {
+        for ($i = 0; $i < self::MAX_CODE_GENERATIONS; $i++) {
             $code = $this->randomCode();
-        } while (Reservation::where('reservation_code', $code)->exists());
+            if (! Reservation::where('reservation_code', $code)->exists()) {
+                return $code;
+            }
+        }
 
-        return $code;
+        // 予約コードそのものは出さず、調査に必要な試行回数だけ記録する
+        Log::warning('重複しない予約コードを'.self::MAX_CODE_GENERATIONS.'回探しましたが見つかりませんでした。', [
+            'attempts' => self::MAX_CODE_GENERATIONS,
+        ]);
+
+        throw new ReservationException(self::CODE_ISSUE_FAILED_MESSAGE);
     }
 
     /**
