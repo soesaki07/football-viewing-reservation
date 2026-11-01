@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\FavoriteTeamController;
 use App\Http\Controllers\MatchController;
 use App\Http\Controllers\MypageController;
+use App\Http\Controllers\Owner\BroadcastController as OwnerBroadcastController;
 use App\Http\Controllers\Owner\ReservationController as OwnerReservationController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ShopController;
@@ -48,5 +49,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('can:access-owner-area')->prefix('owner')->name('owner.')->group(function () {
         Route::get('/reservations', [OwnerReservationController::class, 'index'])->name('reservations.index');
         Route::patch('/reservations/{reservation}/visit-status', [OwnerReservationController::class, 'updateVisitStatus'])->name('reservations.visit-status');
+        Route::get('/broadcasts', [OwnerBroadcastController::class, 'index'])->name('broadcasts.index');
+        Route::get('/broadcasts/create', [OwnerBroadcastController::class, 'create'])->name('broadcasts.create');
+        Route::post('/broadcasts', [OwnerBroadcastController::class, 'store'])->name('broadcasts.store');
     });
 });
