@@ -96,6 +96,13 @@ class ImportJapaneseNames extends Command
                     throw new \RuntimeException("列の数が違います（{$path} の {$lineNumber} 行目）");
                 }
 
+                // UTF-8 として正しくない値は取り込まない（DB に不正な文字列を入れない）
+                foreach ($fields as $field) {
+                    if (! mb_check_encoding((string) $field, 'UTF-8')) {
+                        throw new \RuntimeException("UTF-8 として正しくない文字があります（{$path} の {$lineNumber} 行目）");
+                    }
+                }
+
                 $row = array_combine($expectedHeader, array_map('trim', $fields));
                 if (! ctype_digit($row[$expectedHeader[0]])) {
                     throw new \RuntimeException("IDが数字ではありません（{$path} の {$lineNumber} 行目）");

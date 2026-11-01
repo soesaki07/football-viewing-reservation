@@ -135,6 +135,23 @@ class MatchSearchTest extends TestCase
         }
     }
 
+    public function test_backslash_and_underscore_in_team_are_searched_as_characters(): void
+    {
+        $other = $this->makeTeam('Other FC', 'Other', 'OTH');
+        $backslash = $this->makeMatch($this->makeTeam('Back\\Slash FC', 'BackSlash', 'BSL'), $other, now()->addDay()->toDateTimeString());
+        $underscore = $this->makeMatch($this->makeTeam('Under_Dog FC', 'UnderDog', 'UDG'), $other, now()->addDays(2)->toDateTimeString());
+        $this->makeMatch($this->arsenal, $other, now()->addDays(3)->toDateTimeString());
+
+        // バックスラッシュを含む名前がヒットし、含まない名前はヒットしない
+        $this->assertSame([$backslash->id], $this->listedIds($this->get(route('matches.index', ['team' => 'k\\S']))->getContent()));
+        $this->assertSame([$backslash->id], $this->listedIds($this->get(route('matches.index', ['team' => '\\']))->getContent()));
+        $this->assertSame([], $this->listedIds($this->get(route('matches.index', ['team' => 'Ars\\']))->getContent()));
+        // アンダースコアは任意の1文字ではなく、文字そのものとして探す
+        $this->assertSame([$underscore->id], $this->listedIds($this->get(route('matches.index', ['team' => 'r_D']))->getContent()));
+        $this->assertSame([$underscore->id], $this->listedIds($this->get(route('matches.index', ['team' => '_']))->getContent()));
+        $this->assertSame([], $this->listedIds($this->get(route('matches.index', ['team' => 'rxD']))->getContent()));
+    }
+
     public function test_competition_filter(): void
     {
         $other = $this->makeTeam('Other FC', 'Other', 'OTH');
@@ -225,6 +242,69 @@ class MatchSearchTest extends TestCase
             $this->get(route('matches.index', ['team' => 'Ars', 'page' => $page]))->assertOk();
         }
         $this->get('/matches?team=Ars&page[]=1')->assertOk();
+    }
+
+    public function test_page_numbers_that_are_not_positive_integers_show_first_page(): void
+    {
+        $other = $this->makeTeam('Other FC', 'Other', 'OTH');
+        $ids = [];
+        foreach (range(1, 21) as $i) {
+            $ids[] = $this->makeMatch($this->arsenal, $other, now()->addDays($i)->toDateTimeString())->id;
+        }
+
+        foreach (['abc', '0', '-5', '', '1.5', '0000000000', '0000000001'] as $page) {
+            $listed = $this->listedIds($this->get(route('matches.index', ['team' => 'Arsenal', 'page' => $page]))->assertOk()->getContent());
+            $this->assertSame(array_slice($ids, 0, 20), $listed, "page={$page}");
+        }
+        // 先頭が 0 の長い数字は、0 を取り除いた値のページになる（上限に丸めない）
+        $second = $this->listedIds($this->get(route('matches.index', ['team' => 'Arsenal', 'page' => '0000000002']))->assertOk()->getContent());
+        $this->assertSame([$ids[20]], $second);
+        // 0 を取り除いても6桁以上なら上限に丸められ、エラーにならない
+        $this->get(route('matches.index', ['team' => 'Arsenal', 'page' => '0099999999']))->assertOk();
+    }
+
+    public function test_competition_is_not_validated_without_search_input(): void
+    {
+        // 検索していないときは、存在しない大会でも入力エラーにせず、従来どおり「見つかりませんでした」を出す
+        $this->get(route('matches.index', ['competition' => 'ZZZ']))
+            ->assertOk()
+            ->assertSee('該当する試合が見つかりませんでした。')
+            ->assertDontSee('選択した大会は存在しません。');
+        // 空白だけのチーム名は検索入力とみなさない
+        $this->get(route('matches.index', ['competition' => 'ZZZ', 'team' => '   ']))
+            ->assertOk()
+            ->assertSee('該当する試合が見つかりませんでした。')
+            ->assertDontSee('選択した大会は存在しません。');
+    }
+
+    public function test_period_array_does_not_fail_validation(): void
+    {
+        $other = $this->makeTeam('Other FC', 'Other', 'OTH');
+        $past = $this->makeMatch($this->arsenal, $other, now()->subDay()->toDateTimeString());
+        $next = $this->makeMatch($this->arsenal, $other, now()->addDay()->toDateTimeString());
+
+        // period が配列でも入力エラーにならず、今後の試合（upcoming）として検索できる
+        $response = $this->get('/matches?team=Arsenal&period[]=x');
+
+        $response->assertOk()->assertDontSee('role="alert"', false);
+        $this->assertSame([$next->id], $this->listedIds($response->getContent()));
+        $this->assertNotContains($past->id, $this->listedIds($response->getContent()));
+    }
+
+    public function test_team_with_invalid_utf8_shows_error_and_does_not_search(): void
+    {
+        $other = $this->makeTeam('Other FC', 'Other', 'OTH');
+        $this->makeMatch($this->arsenal, $other, now()->addDay()->toDateTimeString());
+
+        $this->get('/matches?team=%FF%FE')
+            ->assertOk()
+            ->assertSee('チーム名に使えない文字が含まれています。')
+            ->assertDontSee('検索結果');
+        $this->get('/matches?team=Ars%C3')
+            ->assertOk()
+            ->assertSee('チーム名に使えない文字が含まれています。');
+        // 日本語など正しい UTF-8 は通常どおり検索できる
+        $this->get('/matches?team=%E3%82%A2')->assertOk()->assertDontSee('チーム名に使えない文字が含まれています。');
     }
 
     public function test_no_results_message(): void

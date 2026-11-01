@@ -13,6 +13,7 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -150,6 +151,94 @@ class MatchControllerTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('該当する試合が見つかりませんでした。');
+    }
+
+    public function test_index_uses_first_stage_unless_valid_stage_is_given(): void
+    {
+        $competition = Competition::create(['external_competition_id' => 2000, 'code' => 'WC', 'name' => 'FIFA World Cup', 'area_name' => 'World', 'is_active' => true]);
+        $home = Team::create(['external_team_id' => 1, 'name' => 'Brazil']);
+        $away = Team::create(['external_team_id' => 2, 'name' => 'Germany']);
+        $group = $this->createMatch($competition, $home, $away, ['match_day' => null, 'stage' => 'GROUP_STAGE']);
+        $final = $this->createMatch($competition, $away, $home, ['match_day' => null, 'stage' => 'FINAL']);
+
+        // (a) 指定なしと (b) 配列は、最初のステージ（GROUP_STAGE）の試合だけが出る
+        foreach (['/matches?competition=WC', '/matches?competition=WC&stage[]=FINAL'] as $url) {
+            $response = $this->get($url);
+            $response->assertOk();
+            $this->assertSame('GROUP_STAGE', $response->viewData('stage'), $url);
+            $this->assertSame([$group->id], $response->viewData('footballMatches')->pluck('id')->all(), $url);
+        }
+
+        // (c) 文字列で指定したステージはそのまま使う
+        $response = $this->get('/matches?competition=WC&stage=FINAL');
+        $this->assertSame('FINAL', $response->viewData('stage'));
+        $this->assertSame([$final->id], $response->viewData('footballMatches')->pluck('id')->all());
+    }
+
+    public function test_index_treats_invalid_utf8_and_blank_values_as_defaults(): void
+    {
+        $pl = Competition::create(['external_competition_id' => 2021, 'code' => 'PL', 'name' => 'Premier League', 'area_name' => 'England', 'is_active' => true]);
+        $wc = Competition::create(['external_competition_id' => 2000, 'code' => 'WC', 'name' => 'FIFA World Cup', 'area_name' => 'World', 'is_active' => true]);
+        $home = Team::create(['external_team_id' => 1, 'name' => 'Arsenal FC']);
+        $away = Team::create(['external_team_id' => 2, 'name' => 'Chelsea FC']);
+        $plMatch = $this->createMatch($pl, $home, $away, ['match_day' => 1]);
+        $group = $this->createMatch($wc, $home, $away, ['match_day' => null, 'stage' => 'GROUP_STAGE']);
+        $this->createMatch($wc, $away, $home, ['match_day' => null, 'stage' => 'FINAL']);
+
+        // UTF-8 として正しくない competition は指定なし（PL の第1節）
+        $response = $this->get('/matches?competition=%FF');
+        $response->assertOk();
+        $this->assertSame('PL', $response->viewData('competitionCode'));
+        $this->assertSame([$plMatch->id], $response->viewData('footballMatches')->pluck('id')->all());
+
+        // UTF-8 として正しくない stage、空白だけの stage は、最初のステージ
+        foreach (['%FF', '%20', '+'] as $stage) {
+            $response = $this->get('/matches?competition=WC&stage='.$stage);
+            $response->assertOk();
+            $this->assertSame('GROUP_STAGE', $response->viewData('stage'), $stage);
+            $this->assertSame([$group->id], $response->viewData('footballMatches')->pluck('id')->all(), $stage);
+        }
+
+        // 検索モードで competition が不正なバイト列でも 500 にならず、エラー表示になる
+        $this->get('/matches?team=Arsenal&competition=%FF')
+            ->assertOk()
+            ->assertSee('選択した大会は存在しません。')
+            ->assertDontSee('検索結果');
+    }
+
+    public function test_index_with_empty_match_day_shows_first_matchday(): void
+    {
+        $competition = Competition::create(['external_competition_id' => 2021, 'code' => 'PL', 'name' => 'Premier League', 'area_name' => 'England', 'is_active' => true]);
+        $home = Team::create(['external_team_id' => 1, 'name' => 'Arsenal FC']);
+        $away = Team::create(['external_team_id' => 2, 'name' => 'Chelsea FC']);
+        $first = $this->createMatch($competition, $home, $away, ['match_day' => 1]);
+        $second = $this->createMatch($competition, $away, $home, ['match_day' => 2]);
+
+        // match_day が空のときは第1節として扱う（現在の振る舞い）
+        $response = $this->get('/matches?match_day=');
+
+        $response->assertOk();
+        $this->assertSame([$first->id], $response->viewData('footballMatches')->pluck('id')->all());
+        $this->assertNotContains($second->id, $response->viewData('footballMatches')->pluck('id')->all());
+    }
+
+    public function test_index_treats_array_parameters_as_defaults(): void
+    {
+        $competition = Competition::create(['external_competition_id' => 2021, 'code' => 'PL', 'name' => 'Premier League', 'area_name' => 'England', 'is_active' => true]);
+        $home = Team::create(['external_team_id' => 1, 'name' => 'Arsenal FC']);
+        $away = Team::create(['external_team_id' => 2, 'name' => 'Chelsea FC']);
+        $match = $this->createMatch($competition, $home, $away, ['match_day' => 1]);
+        $secondDay = $this->createMatch($competition, $away, $home, ['match_day' => 2]);
+
+        foreach (['competition[]=CL', 'match_day[]=2', 'stage[]=x', 'competition[a]=b&match_day[a]=2&stage[a]=x'] as $query) {
+            $response = $this->get('/matches?'.$query);
+            $response->assertOk();
+            // 既定（PL・第1節）の表示になる
+            $this->assertSame('PL', $response->viewData('competitionCode'), $query);
+            $this->assertSame(1, $response->viewData('matchDay'), $query);
+            $this->assertSame([$match->id], $response->viewData('footballMatches')->pluck('id')->all(), $query);
+            $this->assertNotContains($secondDay->id, $response->viewData('footballMatches')->pluck('id')->all());
+        }
     }
 
     public function test_index_shows_favorite_teams_by_default_when_user_has_favorites(): void
@@ -333,7 +422,7 @@ class MatchControllerTest extends TestCase
         $response->assertSee('東京都渋谷区');
         $response->assertSee('3,000円〜');
         $response->assertDontSee('4,000円〜');
-        $response->assertSee('残り15席');
+        $this->assertRemainingSeats($response, 15);
     }
 
     public function test_show_counts_only_confirmed_reservations(): void
@@ -347,7 +436,7 @@ class MatchControllerTest extends TestCase
         $this->addReservation($seatType, 4, 'no_show');
         $this->addReservation($seatType, 4, 'visited');
 
-        $this->get(route('matches.show', $match->id))->assertSee('残り15席');
+        $this->assertRemainingSeats($this->get(route('matches.show', $match->id)), 15);
     }
 
     public function test_show_does_not_return_negative_seats_for_overbooked_seat_type(): void
@@ -359,7 +448,7 @@ class MatchControllerTest extends TestCase
         $this->addReservation($overbooked, 6);
 
         // 定員超過の座席種別は 0 席として数え、他の種別の 5 席を打ち消さない
-        $this->get(route('matches.show', $match->id))->assertSee('残り5席');
+        $this->assertRemainingSeats($this->get(route('matches.show', $match->id)), 5);
     }
 
     public function test_show_displays_full_when_no_seats_left(): void
@@ -427,7 +516,41 @@ class MatchControllerTest extends TestCase
         $response = $this->get(route('matches.show', $match->id));
 
         $response->assertSee('4,000円〜');
-        $response->assertSee('残り5席');
+        $this->assertRemainingSeats($response, 5);
+    }
+
+    /**
+     * 「残りN席」が要素の中身そのものとして出ていることを確かめる（「残り25席」の一部に一致して通らないように）。
+     */
+    private function assertRemainingSeats(TestResponse $response, int $seats): void
+    {
+        $this->assertMatchesRegularExpression('/>\s*残り'.$seats.'席\s*</', $response->getContent());
+    }
+
+    /**
+     * 並び順のリンクを、表示名をキーに「href のクエリ」と「選択中か」にして返す。
+     *
+     * @return array<string, array{query: array<string, mixed>, current: bool}>
+     */
+    private function sortLinks(TestResponse $response): array
+    {
+        preg_match_all('#<a href="([^"]+)"([^>]*)>(空席の多い順|料金の安い順|店舗名順)</a>#', $response->getContent(), $found, PREG_SET_ORDER);
+
+        $links = [];
+        foreach ($found as $link) {
+            parse_str((string) parse_url(html_entity_decode($link[1]), PHP_URL_QUERY), $query);
+            $links[$link[3]] = ['query' => $query, 'current' => str_contains($link[2], 'aria-current="true"')];
+        }
+
+        return $links;
+    }
+
+    /** 画面に出た店舗のリンク先の ID を並び順どおりに返す */
+    private function listedShopIds(TestResponse $response): array
+    {
+        preg_match_all('#/shops/(\d+)"#', $response->getContent(), $found);
+
+        return array_map('intval', $found[1]);
     }
 
     private function createSortFixture(): FootballMatch
@@ -482,9 +605,66 @@ class MatchControllerTest extends TestCase
 
         $response = $this->get(route('matches.show', ['id' => $match->id, 'favorite' => 0, 'sort' => 'name']));
 
-        $response->assertSee('sort=price', false);
-        $response->assertSee('favorite=0', false);
-        $response->assertSee('aria-current="true"', false);
+        // sort と favorite が同じ href に入っている
+        $links = $this->sortLinks($response);
+        $this->assertSame(['空席の多い順', '料金の安い順', '店舗名順'], array_keys($links));
+        $this->assertSame(['favorite' => '0', 'sort' => 'seats'], $links['空席の多い順']['query']);
+        $this->assertSame(['favorite' => '0', 'sort' => 'price'], $links['料金の安い順']['query']);
+        $this->assertSame(['favorite' => '0', 'sort' => 'name'], $links['店舗名順']['query']);
+    }
+
+    public function test_show_marks_only_selected_sort_link_as_current(): void
+    {
+        $match = $this->createSortFixture();
+
+        $expected = [
+            'seats' => '空席の多い順',
+            'price' => '料金の安い順',
+            'name' => '店舗名順',
+        ];
+        foreach ($expected as $sort => $label) {
+            $links = $this->sortLinks($this->get(route('matches.show', ['id' => $match->id, 'sort' => $sort])));
+            $this->assertSame([$label], array_keys(array_filter($links, fn (array $link) => $link['current'])), $sort);
+        }
+
+        // 不正な sort と sort なしは、既定（空席の多い順）が選択中
+        foreach ([[], ['sort' => 'xxx']] as $query) {
+            $links = $this->sortLinks($this->get(route('matches.show', ['id' => $match->id] + $query)));
+            $this->assertSame(['空席の多い順'], array_keys(array_filter($links, fn (array $link) => $link['current'])));
+        }
+    }
+
+    public function test_show_orders_same_name_shops_by_shop_id(): void
+    {
+        $match = $this->createUpcomingMatch();
+        $first = Shop::factory()->create(['user_id' => User::factory()->create()->id, 'name' => '同名バー', 'status' => Shop::STATUS_PUBLISHED]);
+        $second = Shop::factory()->create(['user_id' => User::factory()->create()->id, 'name' => '同名バー', 'status' => Shop::STATUS_PUBLISHED]);
+        // 放映は店舗 ID と逆の順に作り、放映の取得順に頼らず店舗 ID で並ぶことを確かめる
+        foreach ([$second, $first] as $shop) {
+            $broadcast = Broadcast::factory()->forMatch($match)->create(['shop_id' => $shop->id, 'status' => Broadcast::STATUS_PUBLISHED]);
+            $this->addSeatType($broadcast, 10, 3000);
+        }
+
+        foreach (['seats', 'price', 'name'] as $sort) {
+            $response = $this->get(route('matches.show', ['id' => $match->id, 'sort' => $sort]));
+            $this->assertSame([$first->id, $second->id], $this->listedShopIds($response), $sort);
+        }
+    }
+
+    public function test_show_breaks_price_ties_by_name_then_shop_id(): void
+    {
+        $match = $this->createUpcomingMatch();
+        // 同じ最低料金 1000 円。席数は変えて、席数順では結果が変わらないようにする
+        $b = $this->createShopFor($match, 'Bバー');
+        $this->addSeatType($b, 20, 1000);
+        $a = $this->createShopFor($match, 'Aバー');
+        $this->addSeatType($a, 3, 1000);
+        $cheap = $this->createShopFor($match, 'Zバー');
+        $this->addSeatType($cheap, 5, 500);
+
+        $response = $this->get(route('matches.show', ['id' => $match->id, 'sort' => 'price']));
+
+        $this->assertSame([$cheap->shop_id, $a->shop_id, $b->shop_id], $this->listedShopIds($response));
     }
 
     public function test_show_uses_constant_query_count_regardless_of_shop_count(): void
