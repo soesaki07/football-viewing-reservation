@@ -200,6 +200,16 @@ class OwnerReservationTest extends TestCase
             ->assertSeeTextInOrder(['SECONDON', 'FIRSTONE']);
     }
 
+    public function test_same_kickoff_is_ordered_by_reservation_id_desc_in_past_tab(): void
+    {
+        $match = $this->createFootballMatch(['kickoff_at' => '2026-10-01 12:00:00']);
+        $this->addReservation($this->shop, reservationState: ['reservation_code' => 'FIRSTONE'], match: $match);
+        $this->addReservation($this->shop, reservationState: ['reservation_code' => 'SECONDON'], match: $match);
+
+        $this->actingAs($this->owner)->get(route('owner.reservations.index', ['period' => 'past']))
+            ->assertSeeTextInOrder(['SECONDON', 'FIRSTONE']);
+    }
+
     public function test_filters_by_match_and_ignores_other_shops_match(): void
     {
         $matchA = $this->createFootballMatch(['kickoff_at' => '2026-11-05 12:00:00']);
@@ -281,6 +291,19 @@ class OwnerReservationTest extends TestCase
         $this->assertStringContainsString('page=2', $first->getContent());
         $this->assertStringContainsString('match='.$match->id, $first->getContent());
         $this->assertStringContainsString('period=upcoming', $first->getContent());
+
+        // 2ページ目のリンクの href 1つに、shop・period・match・page がそろっている
+        preg_match_all('#href="([^"]*[?&;]page=2[^"]*)"#', $first->getContent(), $found);
+        $this->assertNotEmpty($found[1]);
+        foreach ($found[1] as $href) {
+            parse_str((string) parse_url(html_entity_decode($href), PHP_URL_QUERY), $query);
+            $this->assertSame([
+                'shop' => (string) $this->shop->id,
+                'period' => 'upcoming',
+                'match' => (string) $match->id,
+                'page' => '2',
+            ], $query);
+        }
     }
 
     public function test_header_link_only_for_shop_owner(): void
@@ -291,6 +314,17 @@ class OwnerReservationTest extends TestCase
 
         $this->actingAs(User::factory()->create())->get(route('mypage'))
             ->assertDontSeeText('予約管理');
+    }
+
+    public function test_header_link_is_in_both_desktop_and_mobile_menus(): void
+    {
+        $html = $this->actingAs($this->owner)->get(route('mypage'))->getContent();
+        $link = 'href="'.route('owner.reservations.index').'"';
+
+        $this->assertSame(1, preg_match('#<nav data-testid="desktop-nav".*?</nav>#s', $html, $desktop));
+        $this->assertSame(1, preg_match('#<details data-testid="mobile-menu".*?</details>#s', $html, $mobile));
+        $this->assertStringContainsString($link, $desktop[0]);
+        $this->assertStringContainsString($link, $mobile[0]);
     }
 
     public function test_query_count_does_not_grow_with_reservations(): void

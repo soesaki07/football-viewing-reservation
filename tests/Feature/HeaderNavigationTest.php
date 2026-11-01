@@ -16,7 +16,7 @@ class HeaderNavigationTest extends TestCase
      */
     private function mobileMenuHtml(string $html): string
     {
-        $this->assertSame(1, preg_match('#<details class="relative sm:hidden">.*?</details>#s', $html, $matches), 'スマホ用メニューが見つかりません');
+        $this->assertSame(1, preg_match('#<details data-testid="mobile-menu".*?</details>#s', $html, $matches), 'スマホ用メニューが見つかりません');
 
         return $matches[0];
     }
@@ -38,12 +38,40 @@ class HeaderNavigationTest extends TestCase
         $this->assertStringContainsString('name="_token"', $menu);
     }
 
+    public function test_desktop_nav_stays_hidden_on_mobile_and_shown_from_sm(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $html = $this->get('/matches')->getContent();
+
+        // パソコン幅のナビはスマホ幅で隠し（hidden）、sm 以上で出す（sm:flex）
+        $this->assertSame(1, preg_match('#<nav data-testid="desktop-nav" class="([^"]*)"#', $html, $desktop));
+        $classes = explode(' ', $desktop[1]);
+        $this->assertContains('hidden', $classes);
+        $this->assertContains('sm:flex', $classes);
+        // スマホ用メニューは sm 以上で隠す
+        $this->assertSame(1, preg_match('#<details data-testid="mobile-menu" class="([^"]*)"#', $html, $mobile));
+        $this->assertContains('sm:hidden', explode(' ', $mobile[1]));
+    }
+
+    public function test_mobile_menu_summary_is_labeled_only_once(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $menu = $this->mobileMenuHtml($this->get('/matches')->getContent());
+
+        // aria-label があるので、読み上げが重ならないよう sr-only の同じ文言は置かない
+        $this->assertSame(1, substr_count($menu, 'aria-label="メニュー"'));
+        $this->assertStringNotContainsString('sr-only', $menu);
+    }
+
     public function test_guest_page_has_no_mobile_menu(): void
     {
         $response = $this->get('/login');
 
         $response->assertOk();
-        $response->assertDontSee('sm:hidden', false);
+        $response->assertDontSee('data-testid="mobile-menu"', false);
+        $response->assertDontSee('data-testid="desktop-nav"', false);
         $response->assertDontSee('aria-label="メニュー"', false);
         $response->assertDontSee('マイページ');
     }

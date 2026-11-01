@@ -10,23 +10,50 @@ use App\Models\Reservation;
 use App\Models\Shop;
 use App\Models\Team;
 use App\Models\User;
+use Closure;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class MatchController extends Controller
 {
+    /**
+     * 検索結果のページ番号の上限（巨大な値で offset の計算が int の範囲を超えて 500 になるのを防ぐ）。
+     */
+    private const MAX_SEARCH_PAGE = 10000;
+
+    /**
+     * 放映店舗一覧の並び順の許可リスト（先頭が既定）。
+     */
+    private const BROADCAST_SORTS = ['seats', 'price', 'name'];
+
     public function index(Request $request): View
     {
         // 検索（日付・チーム名）。入力が不正なら検索せず、エラーを画面に出す
+        // 大会の存在チェックは検索のとき（日付かチーム名があるとき）だけ行う。検索なしの存在しない大会は、従来どおり「見つかりませんでした」の表示にする
+        // filled() は配列（team[]=a など）も入力ありとみなすが、date・team は下の date_format・string ルールで配列を弾くので、配列で検索が実行されることはない
+        $isSearchInput = $request->filled('date') || $request->filled('team');
         $searchValidator = Validator::make($request->query(), [
             'date' => ['nullable', 'date_format:Y-m-d'],
-            'team' => ['nullable', 'string', 'max:50'],
-            'competition' => ['nullable', 'string', 'exists:competitions,code'],
-            'period' => ['nullable', 'string'],
+            'team' => ['nullable', 'string', 'max:50', function (string $attribute, mixed $value, Closure $fail) {
+                // 不正なバイト列（UTF-8 でない文字列）は検索に使わない
+                if (is_string($value) && ! mb_check_encoding($value, 'UTF-8')) {
+                    $fail('チーム名に使えない文字が含まれています。');
+                }
+            }],
+            'competition' => ['bail', 'nullable', 'string', Rule::when($isSearchInput, [
+                function (string $attribute, mixed $value, Closure $fail) {
+                    // 不正なバイト列は DB に渡さず、存在しない大会として扱う（先に弾く）
+                    if (is_string($value) && ! mb_check_encoding($value, 'UTF-8')) {
+                        $fail('選択した大会は存在しません。');
+                    }
+                },
+                'exists:competitions,code',
+            ])],
         ], [
             'date.date_format' => '日付は YYYY-MM-DD の形式で正しい日付を指定してください。',
             'team.max' => 'チーム名は50文字以内で入力してください。',
@@ -44,7 +71,8 @@ class MatchController extends Controller
             $searchParams['team'] = trim((string) $request->query('team', ''));
             $searchParams['competition'] = (string) $request->query('competition', '');
             $searchParams['period'] = $request->query('period') === 'past' ? 'past' : 'upcoming';
-            $isSearching = $searchParams['date'] !== '' || $searchParams['team'] !== '';
+            // 検索モードかどうかは、上で決めた $isSearchInput（空白だけの値は入力なしとみなす）を使う
+            $isSearching = $isSearchInput;
         }
 
         if ($isSearching) {
@@ -52,9 +80,13 @@ class MatchController extends Controller
             $searchResults = $this->searchMatches($searchParams, $request->query('page'));
         }
 
-        $competitionCode = $request->input('competition') ?: 'PL';
-        $matchDay = (int) $request->input('match_day', 1);
-        $stage = $request->input('stage', '');
+        // 配列などの文字列でない値や UTF-8 として正しくない値は、指定なしとして既定値（PL・第1節・ステージ未指定）にする
+        $competitionInput = $request->input('competition');
+        $competitionCode = (is_string($competitionInput) && mb_check_encoding($competitionInput, 'UTF-8') ? $competitionInput : '') ?: 'PL';
+        $matchDayInput = $request->input('match_day');
+        $matchDay = is_string($matchDayInput) ? (int) $matchDayInput : 1;
+        $stageInput = $request->input('stage');
+        $stage = is_string($stageInput) && mb_check_encoding($stageInput, 'UTF-8') ? $stageInput : '';
 
         $competition = Competition::where('code', $competitionCode)->first();
 
@@ -84,7 +116,7 @@ class MatchController extends Controller
                     ->distinct()
                     ->pluck('stage');
 
-                if (! $request->filled('stage')) {
+                if ($stage === '') {
                     $stage = $stages->first() ?? '';
                 }
 
@@ -185,9 +217,11 @@ class MatchController extends Controller
         }
 
         // 巨大なページ番号だと offset の計算が int の範囲を超えて 500 になるため、上限（1万ページ）を付ける
+        // 先頭の 0 は取り除いてから桁数を見る（0000000001 は 1 ページ目）
         $page = 1;
         if (is_string($pageInput) && ctype_digit($pageInput)) {
-            $page = strlen($pageInput) > 5 ? self::MAX_SEARCH_PAGE : min(max((int) $pageInput, 1), self::MAX_SEARCH_PAGE);
+            $digits = ltrim($pageInput, '0');
+            $page = strlen($digits) > 5 ? self::MAX_SEARCH_PAGE : min(max((int) $digits, 1), self::MAX_SEARCH_PAGE);
         }
 
         return $query->paginate(20, ['*'], 'page', $page)->withQueryString();
@@ -205,20 +239,14 @@ class MatchController extends Controller
         $showFavoriteOnly = $hasFavoriteTeams && $request->boolean('favorite', true);
 
         $isFinished = $footballMatch->isFinished();
-        $sort = in_array($request->query('sort'), self::BROADCAST_SORTS, true)
-            ? $request->query('sort')
+        $requestedSort = $request->query('sort');
+        $sort = in_array($requestedSort, self::BROADCAST_SORTS, true)
+            ? $requestedSort
             : self::BROADCAST_SORTS[0];
         $broadcastShops = $isFinished ? collect() : $this->broadcastShops($footballMatch, $sort, $user);
 
         return view('matches.show', compact('footballMatch', 'hasFavoriteTeams', 'showFavoriteOnly', 'isFinished', 'broadcastShops', 'sort'));
     }
-
-    /**
-     * 放映店舗一覧の並び順の許可リスト（先頭が既定）。
-     */
-    private const MAX_SEARCH_PAGE = 10000;
-
-    private const BROADCAST_SORTS = ['seats', 'price', 'name'];
 
     /**
      * 試合を放映する店舗の一覧（1店舗＝1行）を並び順どおりに返す。
@@ -250,7 +278,7 @@ class MatchController extends Controller
         $rows = collect();
         foreach ($broadcasts as $broadcast) {
             $shop = $broadcast->shop;
-            // 有効な座席種別がない放映は出さない（店舗は whereHas で公開中のものに絞り込み済み）
+            // 有効な座席種別がない放映は出さない（店舗は whereRelation で公開中のものに絞り込み済み）
             if ($shop === null || $broadcast->activeBroadcastSeatTypes->isEmpty()) {
                 continue;
             }

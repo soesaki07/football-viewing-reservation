@@ -249,4 +249,31 @@ class JapaneseNamesDisplayTest extends TestCase
             'user_id' => $user->id,
         ]);
     }
+
+    public function test_japanese_names_are_escaped_on_screens(): void
+    {
+        $payload = '<script>alert(1)</script>';
+        $match = $this->createFootballMatch();
+        $match->competition->update(['name_ja' => $payload]);
+        $match->homeTeam->update(['name_ja' => $payload, 'short_name_ja' => $payload, 'tla' => null, 'short_name' => null]);
+        $match->awayTeam->update(['name_ja' => $payload, 'short_name_ja' => $payload, 'tla' => null, 'short_name' => null]);
+        $user = User::factory()->create();
+        $user->favoriteTeams()->sync([$match->home_team_id]);
+        $this->createReservationFor($match, $user);
+        $this->actingAs($user);
+
+        $urls = [
+            route('matches.index'),
+            route('matches.index', ['favorite' => 0]),
+            route('matches.index', ['team' => 'script']),
+            route('matches.show', $match),
+            route('select.teams'),
+            route('mypage'),
+        ];
+        foreach ($urls as $url) {
+            $this->get($url)->assertOk()->assertDontSee($payload, false);
+        }
+        // エスケープされた形で表示される
+        $this->get(route('matches.show', $match))->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;', false);
+    }
 }

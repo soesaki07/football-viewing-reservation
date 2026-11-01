@@ -7,6 +7,7 @@ use App\Models\FootballMatch;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class JapaneseNameOrderTest extends TestCase
@@ -89,5 +90,68 @@ class JapaneseNameOrderTest extends TestCase
 
         $response->assertOk();
         $this->assertSame([$en->id, $ja1->id, $ja2->id], $response->viewData('favoriteTeams')->pluck('id')->all());
+    }
+
+    public function test_same_display_name_is_ordered_by_id(): void
+    {
+        // 表示名が同じ（日本語名どうし、日本語名と英語名のみ）2件は、ID の順に並ぶ
+        $competitionA = $this->makeCompetition(1, 'AAA', 'Aaa League', '同名大会');
+        $competitionB = $this->makeCompetition(2, 'BBB', 'Bbb League', null);
+        $competitionB->update(['name' => '同名大会']);
+        $teamA = Team::create(['external_team_id' => 1, 'name' => 'Aaa FC', 'name_ja' => '同名クラブ']);
+        $teamB = Team::create(['external_team_id' => 2, 'name' => '同名クラブ']);
+        $other = Team::create(['external_team_id' => 3, 'name' => 'Zzz FC']);
+        $user = User::factory()->create();
+        $user->favoriteTeams()->sync([$teamB->id, $other->id, $teamA->id]);
+        foreach ([$teamB, $teamA, $other] as $team) {
+            FootballMatch::create([
+                'external_match_id' => 910000 + $team->id,
+                'competition_id' => $competitionA->id,
+                'home_team_id' => $team->id,
+                'away_team_id' => $other->id,
+                'season_start_year' => 2026,
+                'match_day' => 1,
+                'stage' => 'REGULAR_SEASON',
+                'kickoff_at' => '2026-08-20 18:00:00',
+                'status' => 'SCHEDULED',
+            ]);
+        }
+
+        $this->actingAs($user);
+        $this->assertSame([$competitionA->id, $competitionB->id], $this->get(route('matches.index'))->viewData('competitions')->pluck('id')->all());
+        $select = $this->get(route('select.teams'));
+        $this->assertSame([$competitionA->id, $competitionB->id], $select->viewData('competitions')->pluck('id')->all());
+        $this->assertSame([$other->id, $teamA->id, $teamB->id], $select->viewData('teams')->pluck('id')->all());
+        $this->assertSame([$other->id, $teamA->id, $teamB->id], $this->get(route('mypage'))->viewData('favoriteTeams')->pluck('id')->all());
+    }
+
+    public function test_ordering_queries_sort_by_display_name_then_id(): void
+    {
+        // 同順位の並びは DB の返し方に頼れないため、実行された SQL に「表示名 → ID」の順の指定があることを確かめる
+        $user = User::factory()->create();
+        $team = Team::create(['external_team_id' => 1, 'name' => 'Aaa FC']);
+        $user->favoriteTeams()->sync([$team->id]);
+        $this->makeCompetition(1, 'AAA', 'Aaa League', null);
+        $this->actingAs($user);
+
+        $cases = [
+            [route('matches.index'), 'from competitions', 'order by COALESCE(name_ja, name), id'],
+            [route('select.teams'), 'from teams', 'order by COALESCE(name_ja, name), id'],
+            [route('select.teams'), 'from competitions', 'order by COALESCE(name_ja, name), id'],
+            [route('mypage'), 'from teams', 'order by COALESCE(teams.name_ja, teams.name), teams.id'],
+        ];
+        foreach ($cases as [$url, $table, $expectedOrder]) {
+            $queries = [];
+            DB::listen(function ($query) use (&$queries) {
+                $queries[] = str_replace(['`', '"'], '', $query->sql);
+            });
+            $this->get($url)->assertOk();
+
+            $matched = array_filter($queries, fn (string $sql) => str_contains($sql, $table) && str_contains($sql, 'COALESCE'));
+            $this->assertNotEmpty($matched, "{$url} {$table}");
+            foreach ($matched as $sql) {
+                $this->assertStringContainsString($expectedOrder, $sql, $url);
+            }
+        }
     }
 }

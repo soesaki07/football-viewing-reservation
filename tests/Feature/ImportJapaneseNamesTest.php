@@ -176,6 +176,25 @@ class ImportJapaneseNamesTest extends TestCase
         $this->assertNull($competition->fresh()->name_ja);
     }
 
+    public function test_fails_without_updating_when_value_is_not_valid_utf8(): void
+    {
+        $competition = $this->createCompetition(2021);
+        $team = Team::create(['external_team_id' => 57, 'name' => 'Arsenal FC']);
+
+        // 3行目の名前に UTF-8 として正しくないバイト列（\xFF\xFE）を入れる
+        $teamsFile = $this->teamCsv("57,アーセナル,\n58,\xFF\xFE,\n");
+        $this->artisan('app:import-japanese-names', [
+            '--competitions-file' => $this->competitionCsv("2021,プレミアリーグ\n"),
+            '--teams-file' => $teamsFile,
+        ])
+            ->expectsOutputToContain("UTF-8 として正しくない文字があります（{$teamsFile} の 3 行目）")
+            ->assertFailed();
+
+        // 大会も含め、1件も反映されない
+        $this->assertNull($competition->fresh()->name_ja);
+        $this->assertNull($team->fresh()->name_ja);
+    }
+
     public function test_fails_when_column_count_is_wrong(): void
     {
         $this->artisan('app:import-japanese-names', [
