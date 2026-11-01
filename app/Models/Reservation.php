@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use InvalidArgumentException;
 
 /**
  * @property int $id
@@ -124,6 +125,67 @@ class Reservation extends Model
         $kickoffAt = $this->broadcastSeatType->broadcast->footballMatch->kickoff_at;
 
         return ($now ?? now())->utc()->lt($kickoffAt->copy()->utc());
+    }
+
+    /**
+     * 来店状態を $status に変えられるか（店舗オーナーの操作）。
+     * 試合のキックオフ以降（UTC で比較。ちょうどは可）で、confirmed → visited / no_show、visited ↔ no_show だけ可能。
+     * confirmed には戻せず、cancelled からは変えられない。同じ状態への変更も不可。
+     */
+    public function canChangeVisitStatusTo(string $status, ?Carbon $now = null): bool
+    {
+        $allowedFrom = match ($status) {
+            self::STATUS_VISITED => [self::STATUS_CONFIRMED, self::STATUS_NO_SHOW],
+            self::STATUS_NO_SHOW => [self::STATUS_CONFIRMED, self::STATUS_VISITED],
+            default => [],
+        };
+
+        if (! in_array($this->status, $allowedFrom, true)) {
+            return false;
+        }
+
+        $kickoffAt = $this->broadcastSeatType->broadcast->footballMatch->kickoff_at;
+
+        return ($now ?? now())->utc()->gte($kickoffAt->copy()->utc());
+    }
+
+    /**
+     * 一覧にボタンとして出す、変更先の来店状態の一覧。
+     *
+     * @return list<string>
+     */
+    public function availableVisitStatusChanges(?Carbon $now = null): array
+    {
+        return array_values(array_filter(
+            [self::STATUS_VISITED, self::STATUS_NO_SHOW],
+            fn (string $status): bool => $this->canChangeVisitStatusTo($status, $now),
+        ));
+    }
+
+    /**
+     * 来店状態の変更先の表示名（メッセージ・確認ダイアログ用）。「来店済み」「来店なし」。
+     */
+    public static function visitStatusLabel(string $status): string
+    {
+        return match ($status) {
+            self::STATUS_VISITED => '来店済み',
+            self::STATUS_NO_SHOW => '来店なし',
+            default => throw new InvalidArgumentException("来店状態として扱えない値です：{$status}"),
+        };
+    }
+
+    /**
+     * 一覧のボタンの文言。confirmed からは「来店済み」「来店なし」、付け替えのときは「〜に変更」。
+     */
+    public function visitStatusButtonLabel(string $nextStatus): string
+    {
+        $label = self::visitStatusLabel($nextStatus);
+
+        return match ($this->status) {
+            self::STATUS_CONFIRMED => $label,
+            self::STATUS_VISITED, self::STATUS_NO_SHOW => "{$label}に変更",
+            default => throw new InvalidArgumentException("来店状態を変更できない予約状態です：{$this->status}"),
+        };
     }
 
     /**

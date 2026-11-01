@@ -28,4 +28,23 @@ class ReservationPolicy
             ? Response::allow()
             : Response::denyAsNotFound();
     }
+
+    /**
+     * 来店状態（来店済み・来店なし）の更新は、その予約の放映の店舗のオーナー（shop_owner）だけができる。
+     * Gate（access-owner-area）に加えてここでもロールを確かめる。他店の予約・削除済みの店舗の予約は存在を隠すため 404 にする。
+     * 更新できる状態か（時期・遷移）はここでは見ない（モデル・サービスで判定する）。
+     */
+    public function updateVisitStatus(User $user, Reservation $reservation): Response
+    {
+        if ($user->role !== 'shop_owner') {
+            return Response::deny();
+        }
+
+        // shop は SoftDeletes のため、削除済みの店舗は null になり 404 になる（一覧にも出ない）
+        $shop = $reservation->broadcastSeatType->broadcast->shop;
+
+        return $shop !== null && $shop->user_id === $user->id
+            ? Response::allow()
+            : Response::denyAsNotFound();
+    }
 }

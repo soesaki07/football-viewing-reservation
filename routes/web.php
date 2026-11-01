@@ -47,5 +47,6 @@ Route::middleware('auth')->group(function () {
     // 店舗オーナー向け（shop_owner 以外は 403）
     Route::middleware('can:access-owner-area')->prefix('owner')->name('owner.')->group(function () {
         Route::get('/reservations', [OwnerReservationController::class, 'index'])->name('reservations.index');
+        Route::patch('/reservations/{reservation}/visit-status', [OwnerReservationController::class, 'updateVisitStatus'])->name('reservations.visit-status');
     });
 });
