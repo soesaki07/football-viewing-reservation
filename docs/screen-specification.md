@@ -321,7 +321,7 @@ URL は `/reservations/{reservation}`（ログイン必須。ID を使い、予�
 
 対象：
 
-shop_owner
+shop_owner（アカウントは運営者が `php artisan shop-owner:create` で作る。登録画面からは作れない）
 
 ## 機能
 
