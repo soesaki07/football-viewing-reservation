@@ -196,6 +196,22 @@ class OwnerBroadcastTest extends TestCase
         $past->assertDontSee('2026/11/05');
     }
 
+    public function test_index_pagination_is_japanese(): void
+    {
+        for ($i = 1; $i <= 21; $i++) {
+            $this->addBroadcast($this->shop, $this->createFootballMatch(['kickoff_at' => now()->addDays($i)->toDateTimeString()]));
+        }
+
+        $this->actingAs($this->owner)->get(route('owner.broadcasts.index'))
+            ->assertOk()
+            ->assertSee('件中', false)
+            ->assertSee('件を表示', false)
+            ->assertSee('次へ', false)
+            ->assertDontSee('Showing')
+            ->assertDontSee('results')
+            ->assertDontSee('Next');
+    }
+
     public function test_index_shows_reservation_period_in_jst(): void
     {
         $broadcast = $this->addBroadcast($this->shop, $this->match);

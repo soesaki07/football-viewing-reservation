@@ -3,8 +3,11 @@
 namespace App\Http\Requests;
 
 use App\Models\Broadcast;
+use App\Models\User;
+use App\Services\ReservationService;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Validator;
@@ -29,6 +32,25 @@ class ReservationRequest extends FormRequest
                 ->route('matches.show', $this->broadcast()->football_match_id)
                 ->with('error', 'この放映は現在予約できません。')
         );
+    }
+
+    /**
+     * 入力エラーより先に、この試合を予約済みかどうかを確認する。予約済みなら、入力エラーではなく試合詳細に戻してメッセージを表示する。
+     */
+    protected function failedValidation(ValidatorContract $validator): void
+    {
+        /** @var User $user */
+        $user = $this->user();
+
+        if (app(ReservationService::class)->hasReservedMatch($user, $this->broadcast()->football_match_id)) {
+            throw new HttpResponseException(
+                redirect()
+                    ->route('matches.show', $this->broadcast()->football_match_id)
+                    ->with('error', ReservationService::ALREADY_RESERVED_MESSAGE)
+            );
+        }
+
+        parent::failedValidation($validator);
     }
 
     /**

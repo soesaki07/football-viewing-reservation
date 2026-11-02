@@ -85,6 +85,13 @@ class ReservationController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
+        // 確認画面と同じく、予約済みのチェックを残席などの確認より先に行う（ロック後の最終確認は reserve() で行う）
+        // 予約できない放映（受付終了など）は、その理由を優先するため reserve() に任せる
+        if ($broadcast->isReservable() && $reservationService->hasReservedMatch($user, $broadcast->football_match_id)) {
+            return redirect()->route('reservations.create', $broadcast)
+                ->with('error', ReservationService::ALREADY_RESERVED_MESSAGE);
+        }
+
         try {
             $reservation = $reservationService->reserve(
                 $user,

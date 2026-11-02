@@ -39,7 +39,7 @@
                 class="rounded-lg border-0 bg-white px-3 py-2 text-sm font-medium text-pitch-950 shadow-inner focus:ring-2 focus:ring-gold-500 focus:outline-none">
             <option value="">すべての大会</option>
             @foreach ($competitions as $competitionOption)
-                <option value="{{ $competitionOption->code }}" @selected($isSearching && $competitionOption->code === $searchParams['competition'])>
+                <option value="{{ $competitionOption->code }}" @selected(($isSearching || $searchErrors->any()) && $competitionOption->code === $searchParams['competition'])>
                     {{ $competitionOption->displayName() }}
                 </option>
             @endforeach
