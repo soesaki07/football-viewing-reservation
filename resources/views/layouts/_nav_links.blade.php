@@ -8,6 +8,7 @@
     @endif
 @endif
 @can('access-owner-area')
+    <a href="{{ route('owner.shops.index') }}" class="{{ $linkClass }}">店舗情報</a>
     <a href="{{ route('owner.reservations.index') }}" class="{{ $linkClass }}">予約管理</a>
     <a href="{{ route('owner.broadcasts.index') }}" class="{{ $linkClass }}">放映管理</a>
     <a href="{{ route('owner.seat-types.index') }}" class="{{ $linkClass }}">座席管理</a>

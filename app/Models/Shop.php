@@ -73,8 +73,23 @@ class Shop extends Model
 
     public const STATUS_DRAFT = 'draft';
 
+    /**
+     * 都道府県の一覧（正式名）。入力の検証と選択肢で使う。
+     *
+     * @var list<string>
+     */
+    public const PREFECTURES = [
+        '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+        '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+        '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県', '静岡県', '愛知県',
+        '三重県', '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
+        '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+        '徳島県', '香川県', '愛媛県', '高知県',
+        '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
+    ];
+
+    // user_id（オーナー）は画面から変えさせないため、一括代入の対象にしない
     protected $fillable = [
-        'user_id',
         'name',
         'postal_code',
         'prefecture',
@@ -90,6 +105,18 @@ class Shop extends Model
         'website_url',
         'status',
     ];
+
+    /**
+     * 郵便番号を「123-4567」の形にそろえる。7桁の数字（ハイフンあり・なし）以外はそのまま返す。
+     */
+    public static function normalizePostalCode(?string $postalCode): ?string
+    {
+        if ($postalCode === null || preg_match('/^(\d{3})-?(\d{4})$/', $postalCode, $matches) !== 1) {
+            return $postalCode;
+        }
+
+        return $matches[1].'-'.$matches[2];
+    }
 
     public function owner(): BelongsTo
     {

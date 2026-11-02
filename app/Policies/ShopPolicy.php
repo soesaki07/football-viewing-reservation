@@ -48,4 +48,20 @@ class ShopPolicy
             ? Response::allow()
             : Response::denyAsNotFound();
     }
+
+    /**
+     * 店舗情報の確認・編集は、その店舗のオーナー（shop_owner）だけができる。
+     * shop_owner 以外は 403、他のオーナーの店舗は存在を隠すため 404 にする。
+     * user_id は DB ドライバによって文字列で返ることがあるため、型をそろえて比べる。
+     */
+    public function update(User $user, Shop $shop): Response
+    {
+        if ($user->role !== 'shop_owner') {
+            return Response::deny();
+        }
+
+        return (int) $user->id === (int) $shop->user_id
+            ? Response::allow()
+            : Response::denyAsNotFound();
+    }
 }
