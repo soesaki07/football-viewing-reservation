@@ -336,6 +336,23 @@ class OwnerReservationTest extends TestCase
         }
     }
 
+    public function test_pagination_is_japanese(): void
+    {
+        $match = $this->createFootballMatch(['kickoff_at' => '2026-11-05 12:00:00']);
+        for ($i = 1; $i <= 21; $i++) {
+            $this->addReservation($this->shop, reservationState: ['reservation_code' => sprintf('JAPN%04d', $i)], match: $match);
+        }
+
+        $this->actingAs($this->owner)->get(route('owner.reservations.index'))
+            ->assertOk()
+            ->assertSee('件中', false)
+            ->assertSee('件を表示', false)
+            ->assertSee('次へ', false)
+            ->assertDontSee('Showing')
+            ->assertDontSee('results')
+            ->assertDontSee('Next');
+    }
+
     public function test_header_link_only_for_shop_owner(): void
     {
         $this->actingAs($this->owner)->get(route('mypage'))

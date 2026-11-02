@@ -66,7 +66,13 @@ class MatchController extends Controller
         $searchParams = ['date' => '', 'team' => '', 'competition' => '', 'period' => 'upcoming'];
         $showPeriodTabs = false;
 
-        if ($searchValidator->passes()) {
+        if ($searchValidator->fails()) {
+            // 入力エラーのときは、入力した値をフォームに残す（文字列でない値・UTF-8 として正しくない値は残さない）
+            foreach (['date', 'team', 'competition'] as $field) {
+                $value = $request->query($field);
+                $searchParams[$field] = is_string($value) && mb_check_encoding($value, 'UTF-8') ? $value : '';
+            }
+        } else {
             $searchParams['date'] = (string) $request->query('date', '');
             $searchParams['team'] = trim((string) $request->query('team', ''));
             $searchParams['competition'] = (string) $request->query('competition', '');
@@ -132,7 +138,8 @@ class MatchController extends Controller
 
         /** @var User $user */
         $user = Auth::user();
-        $favoriteTeams = $user->favoriteTeams;
+        // 日本語名の順（日本語名がなければ英語名）。同じ名前なら ID の順（マイページと同じ）
+        $favoriteTeams = $user->favoriteTeams()->orderByRaw('COALESCE(teams.name_ja, teams.name)')->orderBy('teams.id')->get();
         $favoriteTeamIds = $favoriteTeams->pluck('id');
 
         // 検索結果を出すときはお気に入りのブロックを出さないので、試合の取得は省く
@@ -224,7 +231,13 @@ class MatchController extends Controller
             $page = strlen($digits) > 5 ? self::MAX_SEARCH_PAGE : min(max((int) $digits, 1), self::MAX_SEARCH_PAGE);
         }
 
-        return $query->paginate(20, ['*'], 'page', $page)->withQueryString();
+        // 件数を先に1回だけ数え、最後のページより大きいページ番号は最後のページに丸める（0件のときは1ページ目）
+        $total = $query->toBase()->getCountForPagination();
+        $page = min($page, max((int) ceil($total / 20), 1));
+
+        $results = $query->paginate(20, ['*'], 'page', $page, $total);
+
+        return $results->withQueryString();
     }
 
     public function show(Request $request, int $id): View

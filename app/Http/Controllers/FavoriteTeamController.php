@@ -36,7 +36,7 @@ class FavoriteTeamController extends Controller
             }
         }
 
-        $teams = Team::whereIn('id', array_keys($teamCompetitionCodes))->orderByRaw('COALESCE(name_ja, name)')->orderBy('id')->get();
+        $teams = Team::whereIn('id', array_keys($teamCompetitionCodes))->orderByRaw('COALESCE(short_name_ja, short_name, name_ja, name)')->orderBy('id')->get();
 
         $favoriteTeamIds = $user->favoriteTeams->pluck('id');
         $hasFavoriteTeams = $favoriteTeamIds->isNotEmpty();

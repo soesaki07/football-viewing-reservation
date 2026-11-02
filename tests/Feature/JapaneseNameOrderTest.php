@@ -136,8 +136,9 @@ class JapaneseNameOrderTest extends TestCase
 
         $cases = [
             [route('matches.index'), 'from competitions', 'order by COALESCE(name_ja, name), id'],
-            [route('select.teams'), 'from teams', 'order by COALESCE(name_ja, name), id'],
+            [route('select.teams'), 'from teams', 'order by COALESCE(short_name_ja, short_name, name_ja, name), id'],
             [route('select.teams'), 'from competitions', 'order by COALESCE(name_ja, name), id'],
+            [route('matches.index'), 'from teams', 'order by COALESCE(teams.name_ja, teams.name), teams.id'],
             [route('mypage'), 'from teams', 'order by COALESCE(teams.name_ja, teams.name), teams.id'],
         ];
         foreach ($cases as [$url, $table, $expectedOrder]) {
