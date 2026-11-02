@@ -58,9 +58,9 @@ class BroadcastController extends Controller
             ->with([
                 'footballMatch.homeTeam',
                 'footballMatch.awayTeam',
-                // 予約数（confirmed の人数合計）を座席ごとにまとめて取得する（N+1 を避ける）
+                // 予約数（confirmed と visited の人数合計）を座席ごとにまとめて取得する（N+1 を避ける）
                 'broadcastSeatTypes' => fn ($query) => $query
-                    ->withSum('confirmedReservations as confirmed_people', 'number_of_people')
+                    ->withSum('occupyingReservations as occupied_people', 'number_of_people')
                     ->orderBy('id'),
                 'broadcastSeatTypes.seatType',
             ])
@@ -166,9 +166,9 @@ class BroadcastController extends Controller
                 ->with('error', BroadcastService::FINISHED_MESSAGE);
         }
 
-        // この放映にある座席（販売停止中も含む）。予約数（confirmed の人数合計）も一緒に取得する
+        // この放映にある座席（販売停止中も含む）。予約数（confirmed と visited の人数合計）も一緒に取得する
         $seats = $broadcast->broadcastSeatTypes()
-            ->withSum('confirmedReservations as confirmed_people', 'number_of_people')
+            ->withSum('occupyingReservations as occupied_people', 'number_of_people')
             ->with('seatType')
             ->orderBy('id')
             ->get();

@@ -16,7 +16,7 @@
             'price' => $seat->price,
             'max' => $seat->max_people_per_reservation,
             'defaultChecked' => (bool) $seat->is_active,
-            'reserved' => (int) $seat->confirmed_people,
+            'reserved' => (int) $seat->occupied_people,
             'isExisting' => true,
             // 座席種別が無効のとき、販売中に戻すことはできない（販売中のまま保つのと、販売停止にするのは可）
             'canCheck' => $isSeatTypeActive || $seat->is_active,
@@ -111,7 +111,7 @@
                         @endif
                     </label>
                     @if ($row['isExisting'])
-                        <p class="mt-1 text-xs text-pitch-500">予約済み：{{ $row['reserved'] }}人（販売席数はこれより少なくできません）</p>
+                        <p class="mt-1 text-xs text-pitch-500">予約済み（来店済みを含む）：{{ $row['reserved'] }}人（販売席数はこれより少なくできません）</p>
                     @endif
                     <div class="mt-2 grid gap-3 sm:grid-cols-3">
                         <div>

@@ -385,6 +385,71 @@ class ReservationTest extends TestCase
             ->assertSessionHasErrors(['number_of_people' => '残席は1席です。']);
     }
 
+    public function test_remaining_seats_count_confirmed_and_visited_but_not_no_show_or_cancelled(): void
+    {
+        // 1回の上限に邪魔されないようにする
+        $this->seatType->update(['max_people_per_reservation' => 10]);
+        $this->addReservation($this->seatType, 2);
+        $this->addReservation($this->seatType, 2)->forceFill(['status' => Reservation::STATUS_VISITED])->save();
+        $this->addReservation($this->seatType, 1)->forceFill(['status' => Reservation::STATUS_NO_SHOW])->save();
+        $this->addReservation($this->seatType, 1, null, true);
+
+        // 席数 10 − 4 = 6 席。予約入力の人数確認は、残席を1人超える7人を拒否
+        $this->actingAs($this->user)
+            ->post(route('reservations.confirm', $this->broadcast), $this->input(['number_of_people' => 7]))
+            ->assertSessionHasErrors(['number_of_people' => '残席は6席です。']);
+        $this->assertSame(6, $this->seatType->remainingSeats());
+
+        // 予約入力画面の残席
+        $this->actingAs($this->user)->get(route('reservations.create', $this->broadcast))->assertOk()->assertSee('残り6席');
+    }
+
+    public function test_store_recheck_counts_confirmed_and_visited_but_not_no_show_or_cancelled(): void
+    {
+        // 1回の上限に邪魔されないようにする
+        $this->seatType->update(['max_people_per_reservation' => 10]);
+        $this->addReservation($this->seatType, 2);
+        $this->addReservation($this->seatType, 2)->forceFill(['status' => Reservation::STATUS_VISITED])->save();
+        $this->addReservation($this->seatType, 1)->forceFill(['status' => Reservation::STATUS_NO_SHOW])->save();
+        $this->addReservation($this->seatType, 1, null, true);
+        $sessionKey = 'reservation_input.'.$this->broadcast->id;
+
+        // 確認画面を通さず、セッションの入力で確定する。残席は 10 − (2 + 2) = 6 席。1人超える7人は拒否され、予約は作られない
+        $this->actingAs($this->user)->withSession([$sessionKey => $this->input(['number_of_people' => 7])])
+            ->post(route('reservations.store', $this->broadcast))
+            ->assertRedirect(route('reservations.create', $this->broadcast))
+            ->assertSessionHas('error', '残席が足りないため予約できません。');
+        $this->assertSame(4, Reservation::count());
+
+        // ちょうど6人は通り、残席は0になる
+        $this->actingAs($this->user)->withSession([$sessionKey => $this->input(['number_of_people' => 6])])
+            ->post(route('reservations.store', $this->broadcast))
+            ->assertRedirect();
+        $this->assertSame(5, Reservation::count());
+        $this->assertSame(0, $this->seatType->fresh()->remainingSeats());
+    }
+
+    public function test_marking_full_seat_as_visited_does_not_free_seats_but_no_show_does(): void
+    {
+        $reservation = $this->addReservation($this->seatType, 10);
+        $this->actingAs($this->user)->post(route('reservations.confirm', $this->broadcast), $this->input(['number_of_people' => 1]))
+            ->assertSessionHasErrors(['number_of_people' => '残席は0席です。']);
+
+        // 来店済みにしても残席は戻らず、確定時の再確認でも拒否される
+        $reservation->forceFill(['status' => Reservation::STATUS_VISITED])->save();
+        $this->actingAs($this->user)->post(route('reservations.confirm', $this->broadcast), $this->input(['number_of_people' => 1]))
+            ->assertSessionHasErrors(['number_of_people' => '残席は0席です。']);
+        $this->actingAs($this->user)->withSession(['reservation_input.'.$this->broadcast->id => $this->input(['number_of_people' => 1])])
+            ->post(route('reservations.store', $this->broadcast))
+            ->assertRedirect(route('reservations.create', $this->broadcast))
+            ->assertSessionHas('error', '残席が足りないため予約できません。');
+        $this->assertSame(1, Reservation::count());
+
+        // 来店なしにすると席が空く
+        $reservation->forceFill(['status' => Reservation::STATUS_NO_SHOW])->save();
+        $this->assertSame(10, $this->seatType->fresh()->remainingSeats());
+    }
+
     public function test_confirm_rejects_sold_out_seat_type(): void
     {
         $this->addReservation($this->seatType, 10);

@@ -213,7 +213,7 @@ class ReservationController extends Controller
     {
         return $broadcast->activeBroadcastSeatTypes()
             ->with('seatType')
-            ->withSum('confirmedReservations as confirmed_people', 'number_of_people')
+            ->withSum('occupyingReservations as occupied_people', 'number_of_people')
             ->orderBy('price')
             ->orderBy('id')
             ->get();

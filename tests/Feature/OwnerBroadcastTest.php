@@ -177,16 +177,18 @@ class OwnerBroadcastTest extends TestCase
         $this->addBroadcast($this->shop, $past1);
         $this->addBroadcast($this->shop, $past2);
 
-        // 予約数：confirmed の人数だけ数える
+        // 予約数：confirmed と visited の人数を数える（cancelled・no_show は数えない）
         $seat = $broadcastLater->broadcastSeatTypes()->first();
         Reservation::factory()->create(['broadcast_seat_type_id' => $seat->id, 'number_of_people' => 3, 'status' => 'confirmed']);
         Reservation::factory()->create(['broadcast_seat_type_id' => $seat->id, 'number_of_people' => 2, 'status' => 'cancelled']);
+        Reservation::factory()->create(['broadcast_seat_type_id' => $seat->id, 'number_of_people' => 4, 'status' => 'visited']);
+        Reservation::factory()->create(['broadcast_seat_type_id' => $seat->id, 'number_of_people' => 1, 'status' => 'no_show']);
 
         $response = $this->actingAs($this->owner)->get(route('owner.broadcasts.index'));
         $response->assertOk();
         $response->assertSeeInOrder(['2026/11/05 21:00', '2026/11/10 21:00']);
         $response->assertDontSee('2026/10/20');
-        $response->assertSee('3 / 10人');
+        $response->assertSee('7 / 10人');
         $response->assertSee('カウンター席：10席');
         $response->assertSee('非公開');
         $this->assertSame([$broadcastSoon->id, $broadcastLater->id], $response->viewData('broadcasts')->pluck('id')->all());

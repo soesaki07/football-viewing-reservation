@@ -118,7 +118,7 @@ Football-Data.org APIから取得。
 
 予約時：
 
-- 空席確認（残席 = broadcast_seat_types.capacity − confirmed予約の人数合計）
+- 空席確認（残席 = broadcast_seat_types.capacity − confirmed と visited の予約の人数合計）
 - 予約受付期間確認（試合が終了していないことも確認）
 - 二重予約の防止（同じユーザーは同じ試合に、店舗をまたいで confirmed の予約を1件まで。座席種別・店舗が違っても1件まで）
 - トランザクション

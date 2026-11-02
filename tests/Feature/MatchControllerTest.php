@@ -426,18 +426,18 @@ class MatchControllerTest extends TestCase
         $this->assertRemainingSeats($response, 15);
     }
 
-    public function test_show_counts_only_confirmed_reservations(): void
+    public function test_show_counts_confirmed_and_visited_but_not_no_show_or_cancelled(): void
     {
         $match = $this->createUpcomingMatch();
         $broadcast = $this->createShopFor($match, 'テストバー');
         $seatType = $this->addSeatType($broadcast, 20, 3000);
         $this->addReservation($seatType, 2);
-        $this->addReservation($seatType, 3);
-        $this->addReservation($seatType, 4, 'cancelled');
-        $this->addReservation($seatType, 4, 'no_show');
-        $this->addReservation($seatType, 4, 'visited');
+        $this->addReservation($seatType, 2, 'visited');
+        $this->addReservation($seatType, 1, 'no_show');
+        $this->addReservation($seatType, 1, 'cancelled');
 
-        $this->assertRemainingSeats($this->get(route('matches.show', $match->id)), 15);
+        // 席数 20 − (confirmed 2 + visited 2) = 16
+        $this->assertRemainingSeats($this->get(route('matches.show', $match->id)), 16);
     }
 
     public function test_show_does_not_return_negative_seats_for_overbooked_seat_type(): void
