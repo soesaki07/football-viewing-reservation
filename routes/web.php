@@ -8,6 +8,7 @@ use App\Http\Controllers\MypageController;
 use App\Http\Controllers\Owner\BroadcastController as OwnerBroadcastController;
 use App\Http\Controllers\Owner\ReservationController as OwnerReservationController;
 use App\Http\Controllers\Owner\SeatTypeController as OwnerSeatTypeController;
+use App\Http\Controllers\Owner\ShopController as OwnerShopController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ShopController;
 use App\Services\FootballDataService;
@@ -48,6 +49,9 @@ Route::middleware('auth')->group(function () {
 
     // 店舗オーナー向け（shop_owner 以外は 403）
     Route::middleware('can:access-owner-area')->prefix('owner')->name('owner.')->group(function () {
+        Route::get('/shops', [OwnerShopController::class, 'index'])->name('shops.index');
+        Route::get('/shops/{shop}/edit', [OwnerShopController::class, 'edit'])->whereNumber('shop')->name('shops.edit');
+        Route::put('/shops/{shop}', [OwnerShopController::class, 'update'])->whereNumber('shop')->name('shops.update');
         Route::get('/reservations', [OwnerReservationController::class, 'index'])->name('reservations.index');
         Route::patch('/reservations/{reservation}/visit-status', [OwnerReservationController::class, 'updateVisitStatus'])->name('reservations.visit-status');
         Route::get('/broadcasts', [OwnerBroadcastController::class, 'index'])->name('broadcasts.index');

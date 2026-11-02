@@ -180,7 +180,8 @@ class JapaneseNamesDisplayTest extends TestCase
         $reservation = $this->createReservationFor($match, User::factory()->create());
         $shop = $reservation->broadcastSeatType->broadcast->shop;
         $owner = User::factory()->shopOwner()->create();
-        $shop->update(['user_id' => $owner->id]);
+        // user_id は一括代入できない（Shop::$fillable に含めない）ので forceFill で設定する
+        $shop->forceFill(['user_id' => $owner->id])->save();
 
         $this->actingAs($owner)->get(route('owner.reservations.index', ['favorite' => 0]))
             ->assertOk()
