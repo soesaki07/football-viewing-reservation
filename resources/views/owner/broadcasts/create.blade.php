@@ -39,7 +39,7 @@
         <p class="text-sm font-semibold text-pitch-500">店舗：<span class="text-pitch-950">{{ $shop->name }}</span></p>
 
         @if ($seatTypes->isEmpty())
-            <p class="rounded-xl border border-pitch-100 bg-white p-6 text-sm text-pitch-700">有効な座席種別がないため、放映を登録できません。先に座席種別を登録してください。</p>
+            <p class="rounded-xl border border-pitch-100 bg-white p-6 text-sm text-pitch-700">有効な座席種別がないため、放映を登録できません。先に<a href="{{ route('owner.seat-types.create', ['shop' => $shop->id]) }}" class="font-bold text-pitch-700 underline hover:text-gold-500">座席種別を登録</a>してください。</p>
         @else
             {{-- 1. 大会と試合を選ぶ --}}
             <form method="GET" action="{{ route('owner.broadcasts.create') }}" class="space-y-3 rounded-xl border border-pitch-100 bg-white p-4 shadow-sm">

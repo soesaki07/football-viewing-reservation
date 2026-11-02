@@ -48,10 +48,9 @@ class OwnerVisitStatusTest extends TestCase
         $shop ??= $this->shop;
         $match = $this->createFootballMatch(['kickoff_at' => $kickoffAt]);
         $broadcast = Broadcast::factory()->forMatch($match)->create(['shop_id' => $shop->id, 'status' => Broadcast::STATUS_PUBLISHED]);
-        $seatType = SeatType::query()->firstOrCreate(
-            ['shop_id' => $shop->id, 'name' => 'カウンター席'],
-            ['default_capacity' => 10, 'default_price' => 3000, 'is_active' => true],
-        );
+        // shop_id は一括代入できないので、Factory で作る
+        $seatType = SeatType::query()->where('shop_id', $shop->id)->where('name', 'カウンター席')->first()
+            ?? SeatType::factory()->create(['shop_id' => $shop->id, 'name' => 'カウンター席', 'default_capacity' => 10, 'default_price' => 3000, 'is_active' => true]);
         $broadcastSeatType = BroadcastSeatType::factory()->forSeatType($seatType)->create(['broadcast_id' => $broadcast->id]);
 
         return Reservation::factory()->create(array_merge([

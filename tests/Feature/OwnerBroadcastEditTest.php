@@ -61,7 +61,7 @@ class OwnerBroadcastEditTest extends TestCase
 
     private function addSeatType(Shop $shop, string $name, int $capacity, int $price, bool $isActive = true): SeatType
     {
-        return SeatType::create([
+        return SeatType::forceCreate([
             'shop_id' => $shop->id,
             'name' => $name,
             'default_capacity' => $capacity,
@@ -283,8 +283,11 @@ class OwnerBroadcastEditTest extends TestCase
     {
         $this->counter->update(['is_active' => false]);
 
-        // 販売中のまま保つ
-        $this->update($this->validInput())->assertSessionHasNoErrors();
+        // 販売中のまま保つ（ほかに有効な座席種別の座席が1つ以上あれば通る）
+        $this->update($this->validInput(['seats' => [
+            $this->counter->id => ['selected' => '1', 'capacity' => '8', 'price' => '3500', 'max_people_per_reservation' => '5'],
+            $this->table->id => ['selected' => '1', 'capacity' => '5', 'price' => '1000', 'max_people_per_reservation' => '2'],
+        ]]))->assertSessionHasNoErrors();
         $this->assertSame(1, (int) $this->counterSeat->fresh()->is_active);
 
         // 販売停止にする（ほかに販売中の座席を足す）
@@ -292,6 +295,82 @@ class OwnerBroadcastEditTest extends TestCase
             $this->table->id => ['selected' => '1', 'capacity' => '5', 'price' => '1000', 'max_people_per_reservation' => '2'],
         ]]))->assertSessionHasNoErrors();
         $this->assertSame(0, (int) $this->counterSeat->fresh()->is_active);
+    }
+
+    public function test_only_seats_of_inactive_seat_types_cannot_be_kept_selling(): void
+    {
+        $this->counter->update(['is_active' => false]);
+        $editUrl = $this->editUrl();
+        // 入力の検証で止まり、サービスまで進まない
+        $this->mock(BroadcastService::class)->shouldNotReceive('update');
+
+        // 無効な座席種別の座席だけを販売中で送るとエラー（変更されない）
+        $this->actingAs($this->owner)->from($editUrl)->put(route('owner.broadcasts.update', $this->broadcast), $this->validInput())
+            ->assertRedirect($editUrl)
+            ->assertSessionHasErrors(['seats' => BroadcastService::NO_RESERVABLE_SEAT_MESSAGE]);
+        $this->assertSame(10, $this->counterSeat->fresh()->capacity);
+        $this->assertSame(1, (int) $this->counterSeat->fresh()->is_active);
+    }
+
+    public function test_draft_update_is_allowed_when_all_seat_types_are_inactive_but_published_is_not(): void
+    {
+        $this->counter->update(['is_active' => false]);
+        $this->table->update(['is_active' => false]);
+
+        // 公開のままの更新はエラー
+        $this->update($this->validInput(['status' => Broadcast::STATUS_PUBLISHED, 'reservation_end_at' => '2026-11-05T20:00']))
+            ->assertSessionHasErrors(['seats' => BroadcastService::NO_RESERVABLE_SEAT_MESSAGE]);
+        $this->assertSame(Broadcast::STATUS_PUBLISHED, $this->broadcast->fresh()->status);
+
+        // 非公開にする更新は、受付期間の変更も含めて通る（販売中の座席は残したまま）
+        $this->update($this->validInput(['status' => Broadcast::STATUS_DRAFT, 'reservation_end_at' => '2026-11-05T20:00']))
+            ->assertSessionHasNoErrors();
+        $broadcast = $this->broadcast->fresh();
+        $this->assertSame(Broadcast::STATUS_DRAFT, $broadcast->status);
+        // 20:00 JST = 11:00 UTC（元は 12:00 UTC）
+        $this->assertSame('2026-11-05 11:00:00', Carbon::parse($broadcast->reservation_end_at)->format('Y-m-d H:i:s'));
+        $this->assertSame(1, (int) $this->counterSeat->fresh()->is_active);
+    }
+
+    public function test_service_allows_draft_without_reservable_seat_after_locking(): void
+    {
+        $this->counter->update(['is_active' => false]);
+
+        app(BroadcastService::class)->update($this->broadcast, Broadcast::STATUS_DRAFT, Carbon::parse('2026-11-01 00:00:00'), Carbon::parse('2026-11-05 12:00:00'), [
+            ['seat_type_id' => $this->counter->id, 'capacity' => 7, 'price' => 100, 'max_people_per_reservation' => 2],
+        ]);
+
+        $this->assertSame(Broadcast::STATUS_DRAFT, $this->broadcast->fresh()->status);
+    }
+
+    public function test_service_rechecks_reservable_seat_after_locking(): void
+    {
+        $staleBroadcast = Broadcast::query()->findOrFail($this->broadcast->id);
+        // 検証の後に、座席種別が無効になった状況（座席は販売中のまま）
+        $this->counter->update(['is_active' => false]);
+
+        try {
+            app(BroadcastService::class)->update($staleBroadcast, Broadcast::STATUS_PUBLISHED, Carbon::parse('2026-11-01 00:00:00'), Carbon::parse('2026-11-05 12:00:00'), [
+                ['seat_type_id' => $this->counter->id, 'capacity' => 7, 'price' => 100, 'max_people_per_reservation' => 2],
+            ]);
+            $this->fail('例外が投げられるはず');
+        } catch (BroadcastUpdateException $e) {
+            $this->assertSame(['seats' => BroadcastService::NO_RESERVABLE_SEAT_MESSAGE], $e->fieldErrors());
+        }
+        $this->assertSame(10, $this->counterSeat->fresh()->capacity);
+    }
+
+    public function test_service_allows_keeping_inactive_seat_type_seat_when_another_is_reservable(): void
+    {
+        $this->counter->update(['is_active' => false]);
+
+        app(BroadcastService::class)->update($this->broadcast, Broadcast::STATUS_PUBLISHED, Carbon::parse('2026-11-01 00:00:00'), Carbon::parse('2026-11-05 12:00:00'), [
+            ['seat_type_id' => $this->counter->id, 'capacity' => 7, 'price' => 100, 'max_people_per_reservation' => 2],
+            ['seat_type_id' => $this->table->id, 'capacity' => 5, 'price' => 1000, 'max_people_per_reservation' => 2],
+        ]);
+
+        $this->assertSame(7, $this->counterSeat->fresh()->capacity);
+        $this->assertSame(1, (int) $this->counterSeat->fresh()->is_active);
     }
 
     public function test_index_shows_edit_link_only_for_unfinished_matches(): void

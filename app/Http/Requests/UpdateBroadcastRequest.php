@@ -9,6 +9,7 @@ use App\Services\BroadcastService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Validator;
 
 class UpdateBroadcastRequest extends BroadcastRequest
 {
@@ -70,6 +71,33 @@ class UpdateBroadcastRequest extends BroadcastRequest
             ->count();
 
         return $count === count($ids);
+    }
+
+    /**
+     * 共通の確認に加えて、公開するときは、販売する座席に座席種別が有効なものが1つ以上あることを確認する（非公開にするときは確認しない）。
+     */
+    public function after(): array
+    {
+        return [
+            ...parent::after(),
+            function (Validator $validator) {
+                $seats = $this->input('seats');
+                // 座席の形そのもののエラーは、共通のルールに任せる
+                if ($validator->errors()->has('seats') || ! is_array($seats) || $this->input('status') !== Broadcast::STATUS_PUBLISHED) {
+                    return;
+                }
+
+                $hasReservableSeat = SeatType::query()
+                    ->where('shop_id', $this->broadcast()->shop_id)
+                    ->where('is_active', true)
+                    ->whereIn('id', array_keys($seats))
+                    ->exists();
+
+                if (! $hasReservableSeat) {
+                    $validator->errors()->add('seats', BroadcastService::NO_RESERVABLE_SEAT_MESSAGE);
+                }
+            },
+        ];
     }
 
     protected function targetMatch(): ?FootballMatch
