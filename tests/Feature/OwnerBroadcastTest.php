@@ -52,7 +52,7 @@ class OwnerBroadcastTest extends TestCase
 
     private function addSeatType(Shop $shop, string $name, int $capacity, int $price, bool $isActive = true): SeatType
     {
-        return SeatType::create([
+        return SeatType::forceCreate([
             'shop_id' => $shop->id,
             'name' => $name,
             'default_capacity' => $capacity,

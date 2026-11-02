@@ -20,6 +20,8 @@ class BroadcastService
 
     public const SEAT_TYPE_UNAVAILABLE_MESSAGE = '選択された座席種別は登録できません。';
 
+    public const NO_RESERVABLE_SEAT_MESSAGE = '予約できる座席（座席種別が有効なもの）を1つ以上販売してください。';
+
     public const SEAT_BELOW_RESERVED_MESSAGE = '予約済みの人数（%d人）より少ない席数にはできません。';
 
     /**
@@ -109,6 +111,13 @@ class BroadcastService
                 if ($seatType === null || ! ($seatType->is_active || $isSelling)) {
                     throw new BroadcastUpdateException(self::SEAT_TYPE_UNAVAILABLE_MESSAGE, ['seats' => self::SEAT_TYPE_UNAVAILABLE_MESSAGE]);
                 }
+            }
+
+            // 公開するときは、予約できる座席（座席種別が有効なもの）が1つ以上あること。無効な座席種別の座席だけでは公開中でも予約できない
+            // 非公開にするときは確認しない（座席種別がすべて無効でも、非公開にはできるようにする）
+            $hasReservableSeat = collect($seats)->contains(fn (array $seat) => (bool) $seatTypes->get($seat['seat_type_id'])?->is_active);
+            if ($status === Broadcast::STATUS_PUBLISHED && ! $hasReservableSeat) {
+                throw new BroadcastUpdateException(self::NO_RESERVABLE_SEAT_MESSAGE, ['seats' => self::NO_RESERVABLE_SEAT_MESSAGE]);
             }
 
             $fieldErrors = [];

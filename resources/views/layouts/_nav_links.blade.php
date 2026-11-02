@@ -10,6 +10,7 @@
 @can('access-owner-area')
     <a href="{{ route('owner.reservations.index') }}" class="{{ $linkClass }}">予約管理</a>
     <a href="{{ route('owner.broadcasts.index') }}" class="{{ $linkClass }}">放映管理</a>
+    <a href="{{ route('owner.seat-types.index') }}" class="{{ $linkClass }}">座席管理</a>
 @endcan
 <a href="{{ route('mypage') }}" class="{{ $linkClass }}">マイページ</a>
 <form action="{{ route('logout') }}" method="POST">

@@ -49,10 +49,9 @@ class OwnerReservationTest extends TestCase
             ['shop_id' => $shop->id, 'football_match_id' => $match->id],
             Broadcast::factory()->forMatch($match)->make(['shop_id' => $shop->id, 'status' => Broadcast::STATUS_PUBLISHED])->getAttributes(),
         );
-        $seatType = SeatType::query()->firstOrCreate(
-            ['shop_id' => $shop->id, 'name' => $seatName],
-            ['default_capacity' => 10, 'default_price' => 3000, 'is_active' => true],
-        );
+        // shop_id は一括代入できないので、Factory で作る
+        $seatType = SeatType::query()->where('shop_id', $shop->id)->where('name', $seatName)->first()
+            ?? SeatType::factory()->create(['shop_id' => $shop->id, 'name' => $seatName, 'default_capacity' => 10, 'default_price' => 3000, 'is_active' => true]);
         $broadcastSeatType = BroadcastSeatType::query()->firstOrCreate(
             ['broadcast_id' => $broadcast->id, 'seat_type_id' => $seatType->id],
             BroadcastSeatType::factory()->forSeatType($seatType)->make()->getAttributes(),

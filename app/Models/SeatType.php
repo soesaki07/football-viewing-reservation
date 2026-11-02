@@ -42,8 +42,8 @@ class SeatType extends Model
 {
     use HasFactory;
 
+    // shop_id は一括代入させない（リレーション経由か、サーバー側で決めた値を明示して設定する）
     protected $fillable = [
-        'shop_id',
         'name',
         'description',
         'default_capacity',
