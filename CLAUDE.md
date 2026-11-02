@@ -148,3 +148,9 @@
 - 症状：`SQLSTATE[42S22]: Column not found: 1054 Unknown column 'name_ja' in 'order clause' (Connection: mysql, Host: mysql, Port: 3306, Database: testing, ...)` などの SQL エラーで、今回の変更と関係のないテストが大量に失敗・エラーになる（例：失敗 1件・エラー 41件）。もう一度1つだけ実行すると、すべて通る。2026-11-01、B の2回目のレビューと C の1回目のレビューを同時に回したときに起きた（#62）。
 - 原因（推定）：Sail のテストは、どれも同じテスト用 DB（`testing`）を使う。2つのテストを同時に実行すると、片方の `RefreshDatabase` がテーブルを作り直している間に、もう片方のテストが動く。
 - 対処：Sail のテストは同時に1つだけ実行する。レビューを同時に頼むときは、テストを実行するのは片方だけにし、もう片方はテストを実行せずに「未実施（もう片方で実施）」と報告する。テストのためにリポジトリのコピーを作らない（worktree・clone には未コミットのレビュー対象が入らず、変更のないコードでテストが通ってしまう。作業フォルダごとコピーすると `.env` の秘密情報も複製される）。
+
+### worktree（ホストの PHP）ではテストが通るのに、Sail・CI では翻訳した文言のテストが落ちる
+- 症状：worktree では通っていた、翻訳ファイル（`lang/ja`）の文言を確かめるテスト（例：ページ送りの「35件中」）が、メインの作業フォルダの Sail や CI で落ちる。日本語の文言が見つからず、英語の文言（例：`Showing`）が出ている。2026-11-02、#68 でページ送りのテスト3件が落ちた。
+  `Failed asserting that '<!DOCTYPE html>...' [UTF-8](length: 33876) contains "次へ".`
+- 原因：`APP_LOCALE` と `APP_FALLBACK_LOCALE` が、`.env` の有無で変わる。worktree でホストの PHP と SQLite のメモリ DB（`.env` なし）で実行すると、`config/app.php`（81・83行目）の既定値で、どちらも `ja` になる。`.env.example` はどちらも `en`（7・8行目）。CI は `.env.example` をコピーした `.env` を使うので `en`。Sail は手元の `.env` を読むので、`.env.example` から作ったままなら `en`。
+- 対処：画面の文言は、ほかの画面と同じく、ビューに日本語で直接書く（翻訳ファイルに頼らない）。翻訳ファイルを使う必要があるときは、メインの作業フォルダの Sail か CI で確かめる。worktree でテストするときは `APP_LOCALE=en APP_FALLBACK_LOCALE=en` を付けて実行すると、Sail・CI と同じ言語の条件になる（`APP_LOCALE` だけでは、訳が見つからないときに fallback の `ja` の訳が使われ、テストが通ってしまう）。上の「git worktree で並行作業するとき…」の項目の方法で実行するときも同じ。
