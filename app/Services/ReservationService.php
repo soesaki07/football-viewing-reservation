@@ -223,12 +223,13 @@ class ReservationService
     }
 
     /**
-     * ユーザーが、この試合（どの店舗でも）に confirmed の予約を持っているか。
+     * ユーザーが、この試合（どの店舗でも）に confirmed または visited の予約を持っているか（1試合1件の判定）。
+     * cancelled / no_show は数えない。
      */
     public function hasReservedMatch(User $user, int $footballMatchId): bool
     {
         return Reservation::query()
-            ->confirmed()
+            ->countedForOnePerMatch()
             ->where('user_id', $user->id)
             ->forFootballMatch($footballMatchId)
             ->exists();

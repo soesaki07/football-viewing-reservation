@@ -269,10 +269,11 @@ class MatchController extends Controller
      */
     private function broadcastShops(FootballMatch $footballMatch, string $sort, User $user): Collection
     {
-        // ログインユーザーのこの試合の予約（confirmed、1件まで）を、放映の ID とあわせて1回のクエリで取得する
-        // 「この試合の confirmed の予約」の条件は、ReservationService::hasReservedMatch() と同じスコープで決める
+        // ログインユーザーのこの試合の予約（confirmed または visited）を、放映の ID とあわせて1回のクエリで取得する
+        // 数える予約が複数ある場合（no_show を visited に付け替えたときなど）は、ID の小さい1件の店舗に「予約済み」を出す
+        // 「この試合の confirmed または visited の予約」の条件は、ReservationService::hasReservedMatch() と同じスコープで決める
         $reservation = Reservation::query()
-            ->confirmed()
+            ->countedForOnePerMatch()
             ->where('reservations.user_id', $user->id)
             ->forFootballMatch($footballMatch->id)
             ->join('broadcast_seat_types', 'broadcast_seat_types.id', '=', 'reservations.broadcast_seat_type_id')

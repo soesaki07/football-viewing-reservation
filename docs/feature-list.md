@@ -122,7 +122,7 @@ Football-Data.org APIから取得。
 
 - 空席確認（残席 = broadcast_seat_types.capacity − confirmed と visited の予約の人数合計）
 - 予約受付期間確認（試合が終了していないことも確認）
-- 二重予約の防止（同じユーザーは同じ試合に、店舗をまたいで confirmed の予約を1件まで。座席種別・店舗が違っても1件まで）
+- 二重予約の防止（同じユーザーは同じ試合に、店舗をまたいで confirmed または visited の予約を1件まで。座席種別・店舗が違っても1件まで）
 - トランザクション
 - users行のロック → broadcast_seat_types行のロック（lockForUpdate。この順番で固定）
 - 予約コード発行（英大文字と数字の8桁。紛らわしい 0, O, 1, I は使わない）（重複したら最大3回まで作り直す）
