@@ -109,8 +109,8 @@
                     <div>
                         <label for="status" class="block text-sm font-semibold text-pitch-500">放映ステータス</label>
                         <select id="status" name="status" class="mt-1 rounded-md border border-pitch-100 bg-white px-3 py-2 text-sm text-pitch-950">
-                            <option value="draft" @selected(old('status', 'draft') === 'draft')>非公開</option>
-                            <option value="published" @selected(old('status', 'draft') === 'published')>公開</option>
+                            <option value="{{ \App\Models\Broadcast::STATUS_DRAFT }}" @selected(old('status', \App\Models\Broadcast::STATUS_DRAFT) === \App\Models\Broadcast::STATUS_DRAFT)>非公開</option>
+                            <option value="{{ \App\Models\Broadcast::STATUS_PUBLISHED }}" @selected(old('status', \App\Models\Broadcast::STATUS_DRAFT) === \App\Models\Broadcast::STATUS_PUBLISHED)>公開</option>
                         </select>
                         @error('status')
                             <p class="mt-1 text-sm font-bold text-red-700">{{ $message }}</p>

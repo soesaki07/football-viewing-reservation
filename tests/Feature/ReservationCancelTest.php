@@ -104,7 +104,7 @@ class ReservationCancelTest extends TestCase
 
         $this->assertSame(10, $this->broadcastSeatType->remainingSeats());
 
-        $new = app(ReservationService::class)->reserve($this->user, $this->broadcast, $this->broadcastSeatType->id, 2, null);
+        $new = app(ReservationService::class)->reserve($this->user, $this->broadcast, $this->broadcastSeatType->id, 2, 3000, null);
         $this->assertSame(Reservation::STATUS_CONFIRMED, $new->status);
         $this->assertSame(8, $this->broadcastSeatType->remainingSeats());
     }

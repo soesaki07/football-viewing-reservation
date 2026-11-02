@@ -13,6 +13,9 @@
         @if (session('success'))
             <p class="rounded-xl border border-pitch-100 bg-pitch-50 p-4 text-sm font-bold text-pitch-950" role="status">{{ session('success') }}</p>
         @endif
+        @if (session('error'))
+            <p class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700" role="alert">{{ session('error') }}</p>
+        @endif
 
         {{-- 店舗の切り替え（2店舗以上のときだけ） --}}
         @if ($shops->count() >= 2)
@@ -60,6 +63,7 @@
                             <th scope="col" class="whitespace-nowrap px-4 py-3">ステータス</th>
                             <th scope="col" class="whitespace-nowrap px-4 py-3">座席</th>
                             <th scope="col" class="whitespace-nowrap px-4 py-3">予約数</th>
+                            <th scope="col" class="whitespace-nowrap px-4 py-3"><span class="sr-only">操作</span></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-pitch-100">
@@ -82,13 +86,19 @@
                                         〜 {{ $broadcast->reservation_end_at !== null ? \Illuminate\Support\Carbon::parse($broadcast->reservation_end_at)->timezone('Asia/Tokyo')->format('Y/m/d H:i') : '制限なし' }}
                                     @endif
                                 </td>
-                                <td class="whitespace-nowrap px-4 py-3"><span class="rounded-full bg-pitch-100 px-3 py-1 text-xs font-bold text-pitch-950">{{ $broadcast->status === 'published' ? '公開' : '非公開' }}</span></td>
+                                <td class="whitespace-nowrap px-4 py-3"><span class="rounded-full bg-pitch-100 px-3 py-1 text-xs font-bold text-pitch-950">{{ $broadcast->status === \App\Models\Broadcast::STATUS_PUBLISHED ? '公開' : '非公開' }}</span></td>
                                 <td class="px-4 py-3 text-xs">
                                     @foreach ($broadcast->broadcastSeatTypes as $seat)
                                         <p class="whitespace-nowrap">{{ $seat->seatType->name }}：{{ $seat->capacity }}席 / {{ number_format($seat->price) }}円</p>
                                     @endforeach
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-3">{{ $totalReserved }} / {{ $totalCapacity }}人</td>
+                                <td class="whitespace-nowrap px-4 py-3">
+                                    {{-- 終了した試合の放映は編集できないので、リンクを出さない --}}
+                                    @unless ($match->isFinished())
+                                        <a href="{{ route('owner.broadcasts.edit', $broadcast) }}" class="text-sm font-bold text-pitch-700 hover:text-gold-500">編集</a>
+                                    @endunless
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
