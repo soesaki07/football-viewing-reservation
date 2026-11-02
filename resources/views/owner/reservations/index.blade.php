@@ -88,7 +88,9 @@
                                 $match = $reservation->broadcastSeatType->broadcast->footballMatch;
                             @endphp
                             <tr>
-                                <td class="whitespace-nowrap px-4 py-3 font-bold tracking-widest text-pitch-950">{{ $reservation->reservation_code }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 font-bold tracking-widest text-pitch-950">
+                                    <a href="{{ route('owner.reservations.show', ['reservation' => $reservation, 'period' => $period, 'match' => $selectedMatchId, 'page' => $reservations->currentPage()]) }}" class="underline transition hover:text-gold-500">{{ $reservation->reservation_code }}</a>
+                                </td>
                                 <td class="whitespace-nowrap px-4 py-3">{{ $reservation->user->name }}</td>
                                 <td class="min-w-48 px-4 py-3">
                                     <span class="font-bold text-pitch-950">{{ $match->homeTeam->displayName() }} vs {{ $match->awayTeam->displayName() }}</span><br>
