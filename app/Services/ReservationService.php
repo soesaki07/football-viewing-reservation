@@ -166,7 +166,7 @@ class ReservationService
 
     /**
      * 予約をキャンセルする。予約の行だけをロックし、ロック後の最新の状態でキャンセルできるかを再確認する。
-     * 予約の人数・金額などは変えず、status と cancelled_at だけを更新する（残席は confirmed の人数合計から自動で戻る）。
+     * 予約の人数・金額などは変えず、status と cancelled_at だけを更新する（残席は confirmed と visited の人数合計から自動で戻る）。
      *
      * @throws ReservationException キャンセルできない予約のとき
      */

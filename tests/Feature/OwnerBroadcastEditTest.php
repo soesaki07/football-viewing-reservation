@@ -223,8 +223,10 @@ class OwnerBroadcastEditTest extends TestCase
 
     public function test_edit_shows_current_values_reserved_people_and_addable_seats(): void
     {
-        $this->reserve($this->counterSeat, 3);
+        $this->reserve($this->counterSeat, 2);
+        $this->reserve($this->counterSeat, 1, Reservation::STATUS_VISITED);
         $this->reserve($this->counterSeat, 2, Reservation::STATUS_CANCELLED);
+        $this->reserve($this->counterSeat, 2, Reservation::STATUS_NO_SHOW);
         BroadcastSeatType::factory()->forSeatType($this->table)->create(['broadcast_id' => $this->broadcast->id, 'is_active' => false]);
         // 店舗の有効な座席種別のうち、まだこの放映にないもの（無効な座席種別・他店の座席種別は出ない）
         $addable = $this->addSeatType($this->shop, '個室', 6, 5000);
@@ -238,7 +240,7 @@ class OwnerBroadcastEditTest extends TestCase
             ->assertSee('value="2026-10-31T09:00"', false)
             ->assertSee('value="2026-11-05T21:00"', false)
             ->assertSee('Arsenal FC vs Chelsea FC')
-            ->assertSee('予約済み：3人')
+            ->assertSee('予約済み（来店済みを含む）：3人')
             ->assertSee('name="seats['.$this->counter->id.'][capacity]"', false)
             // 席数の下限は、予約済みの人数
             ->assertSee('min="3" max="65535"', false)
@@ -438,8 +440,9 @@ class OwnerBroadcastEditTest extends TestCase
     {
         $this->reserve($this->counterSeat, 3);
         $this->reserve($this->counterSeat, 2);
-        // キャンセル済み・来店済みなどは席を押さえていないので数えない
+        // キャンセル済み・来店なしは席が空いているので数えない
         $this->reserve($this->counterSeat, 4, Reservation::STATUS_CANCELLED);
+        $this->reserve($this->counterSeat, 4, Reservation::STATUS_NO_SHOW);
 
         $seats = fn (int $capacity) => [$this->counter->id => ['selected' => '1', 'capacity' => (string) $capacity, 'price' => '3000', 'max_people_per_reservation' => '4']];
 
@@ -451,6 +454,34 @@ class OwnerBroadcastEditTest extends TestCase
         $this->assertSame(10, $this->counterSeat->fresh()->capacity);
 
         $this->update($this->validInput(['seats' => $seats(5)]))->assertRedirect($this->indexUrl())->assertSessionHasNoErrors();
+        $this->assertSame(5, $this->counterSeat->fresh()->capacity);
+    }
+
+    public function test_capacity_floor_includes_visited_people(): void
+    {
+        $this->reserve($this->counterSeat, 3);
+        $this->reserve($this->counterSeat, 2, Reservation::STATUS_VISITED);
+
+        $seats = fn (int $capacity) => [$this->counter->id => ['selected' => '1', 'capacity' => (string) $capacity, 'price' => '3000', 'max_people_per_reservation' => '4']];
+
+        // 画面（FormRequest 経由）：confirmed 3 + visited 2 = 5 の1つ下は拒否、ちょうどは許可
+        $editUrl = $this->editUrl();
+        $this->actingAs($this->owner)->from($editUrl)->put(route('owner.broadcasts.update', $this->broadcast), $this->validInput(['seats' => $seats(4)]))
+            ->assertRedirect($editUrl)
+            ->assertSessionHasErrors(["seats.{$this->counter->id}.capacity" => '予約済みの人数（5人）より少ない席数にはできません。']);
+        $this->assertSame(10, $this->counterSeat->fresh()->capacity);
+
+        // サービス（ロックした後の確認）：1つ下は例外、ちょうどは通る
+        $call = fn (int $capacity) => app(BroadcastService::class)->update($this->broadcast, Broadcast::STATUS_PUBLISHED, Carbon::parse('2026-11-01 00:00:00'), Carbon::parse('2026-11-05 12:00:00'), [
+            ['seat_type_id' => $this->counter->id, 'capacity' => $capacity, 'price' => 3000, 'max_people_per_reservation' => 4],
+        ]);
+        try {
+            $call(4);
+            $this->fail('例外が投げられるはず');
+        } catch (BroadcastUpdateException $e) {
+            $this->assertSame(['seats.'.$this->counter->id.'.capacity'], array_keys($e->fieldErrors()));
+        }
+        $call(5);
         $this->assertSame(5, $this->counterSeat->fresh()->capacity);
     }
 

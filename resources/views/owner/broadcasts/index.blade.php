@@ -71,7 +71,7 @@
                             @php
                                 $match = $broadcast->footballMatch;
                                 $totalCapacity = $broadcast->broadcastSeatTypes->sum('capacity');
-                                $totalReserved = $broadcast->broadcastSeatTypes->sum(fn ($seat) => (int) $seat->confirmed_people);
+                                $totalReserved = $broadcast->broadcastSeatTypes->sum(fn ($seat) => (int) $seat->occupied_people);
                             @endphp
                             <tr>
                                 <td class="min-w-48 px-4 py-3">

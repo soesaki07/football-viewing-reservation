@@ -89,9 +89,9 @@ class BroadcastService
                 throw new BroadcastUpdateException(self::FINISHED_MESSAGE);
             }
 
-            // ロック後の予約済みの人数（confirmed の人数合計）。座席の行（broadcast_seat_types.id）ごと
-            $confirmedPeople = Reservation::query()
-                ->confirmed()
+            // ロック後の予約済みの人数（confirmed と visited の人数合計）。座席の行（broadcast_seat_types.id）ごと
+            $occupiedPeople = Reservation::query()
+                ->occupyingSeats()
                 ->whereIn('broadcast_seat_type_id', $lockedSeats->pluck('id'))
                 ->groupBy('broadcast_seat_type_id')
                 ->selectRaw('broadcast_seat_type_id, SUM(number_of_people) as people')
@@ -114,7 +114,7 @@ class BroadcastService
             $fieldErrors = [];
             foreach ($seats as $seat) {
                 $existing = $lockedSeats->get($seat['seat_type_id']);
-                $reserved = $existing === null ? 0 : (int) ($confirmedPeople[$existing->id] ?? 0);
+                $reserved = $existing === null ? 0 : (int) ($occupiedPeople[$existing->id] ?? 0);
                 if ($seat['capacity'] < $reserved) {
                     $fieldErrors["seats.{$seat['seat_type_id']}.capacity"] = sprintf(self::SEAT_BELOW_RESERVED_MESSAGE, $reserved);
                 }

@@ -61,6 +61,12 @@ class Reservation extends Model
 
     public const STATUS_NO_SHOW = 'no_show';
 
+    /**
+     * 席を使っている予約の状態。残席と席数の下限は、この状態の人数合計で数える。
+     * 来店済み（visited）も、試合中は席に座っているので数える。cancelled / no_show は席が空くので数えない。
+     */
+    public const SEAT_OCCUPYING_STATUSES = [self::STATUS_CONFIRMED, self::STATUS_VISITED];
+
     // 予約者・金額・予約コード・状態・予約日時は一括代入できない。ReservationService の中で forceFill により明示して設定する
     protected $fillable = [
         'broadcast_seat_type_id',
@@ -192,6 +198,16 @@ class Reservation extends Model
     {
         // join で broadcasts など同名の status カラムがあるテーブルと一緒に使っても曖昧にならないよう、テーブル名で修飾する
         $query->where($query->qualifyColumn('status'), self::STATUS_CONFIRMED);
+    }
+
+    /**
+     * 席を使っている（confirmed と visited）予約に絞り込む。cancelled / no_show は含まない。
+     *
+     * @param  Builder<Reservation>  $query
+     */
+    public function scopeOccupyingSeats(Builder $query): void
+    {
+        $query->whereIn($query->qualifyColumn('status'), self::SEAT_OCCUPYING_STATUSES);
     }
 
     /**

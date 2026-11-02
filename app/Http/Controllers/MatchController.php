@@ -271,7 +271,7 @@ class MatchController extends Controller
             ->whereRelation('shop', 'status', Shop::STATUS_PUBLISHED)
             ->with([
                 'shop',
-                'activeBroadcastSeatTypes' => fn ($query) => $query->withSum('confirmedReservations as confirmed_people', 'number_of_people'),
+                'activeBroadcastSeatTypes' => fn ($query) => $query->withSum('occupyingReservations as occupied_people', 'number_of_people'),
             ])
             ->get();
 

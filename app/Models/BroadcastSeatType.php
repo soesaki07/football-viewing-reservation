@@ -69,27 +69,27 @@ class BroadcastSeatType extends Model
     }
 
     /**
-     * 確定済みの予約だけの一覧（残席の計算用）。
+     * 席を使っている予約（confirmed と visited）だけの一覧（残席の計算用）。
      *
      * @return HasMany<Reservation, $this>
      */
-    public function confirmedReservations(): HasMany
+    public function occupyingReservations(): HasMany
     {
-        return $this->hasMany(Reservation::class)->confirmed();
+        return $this->hasMany(Reservation::class)->occupyingSeats();
     }
 
     /**
-     * 残席（定員 − confirmed の予約の人数合計。0 未満にしない）。
-     * withSum で confirmed_people を取得済みならそれを使い、なければ DB から数える。
+     * 残席（定員 − 席を使っている予約（confirmed と visited）の人数合計。0 未満にしない）。
+     * withSum で occupied_people を取得済みならそれを使い、なければ DB から数える。
      */
     public function remainingSeats(): int
     {
         // 予約が0件だと withSum の結果は null になるので、キーの有無で取得済みかを判断する
-        $confirmedPeople = array_key_exists('confirmed_people', $this->attributes)
-            ? $this->attributes['confirmed_people']
-            : $this->confirmedReservations()->sum('number_of_people');
+        $occupiedPeople = array_key_exists('occupied_people', $this->attributes)
+            ? $this->attributes['occupied_people']
+            : $this->occupyingReservations()->sum('number_of_people');
 
-        return max(0, $this->capacity - (int) $confirmedPeople);
+        return max(0, $this->capacity - (int) $occupiedPeople);
     }
 
     /**
