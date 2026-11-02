@@ -67,6 +67,13 @@ class Reservation extends Model
      */
     public const SEAT_OCCUPYING_STATUSES = [self::STATUS_CONFIRMED, self::STATUS_VISITED];
 
+    /**
+     * 「1試合1件」の判定で数える予約の状態。同じユーザーは、同じ試合にこの状態の予約を1件までしか持てない。
+     * 来店済み（visited）は試合を見に来た人なので数える。cancelled / no_show は数えない（no_show は再び予約できる）。
+     * 席数の計算（SEAT_OCCUPYING_STATUSES）とは意味が違うため、値が同じでも別の定数にしている。
+     */
+    public const ONE_PER_MATCH_STATUSES = [self::STATUS_CONFIRMED, self::STATUS_VISITED];
+
     // 予約者・金額・予約コード・状態・予約日時は一括代入できない。ReservationService の中で forceFill により明示して設定する
     protected $fillable = [
         'broadcast_seat_type_id',
@@ -208,6 +215,16 @@ class Reservation extends Model
     public function scopeOccupyingSeats(Builder $query): void
     {
         $query->whereIn($query->qualifyColumn('status'), self::SEAT_OCCUPYING_STATUSES);
+    }
+
+    /**
+     * 「1試合1件」の判定で数える（confirmed と visited）予約に絞り込む。cancelled / no_show は含まない。
+     *
+     * @param  Builder<Reservation>  $query
+     */
+    public function scopeCountedForOnePerMatch(Builder $query): void
+    {
+        $query->whereIn($query->qualifyColumn('status'), self::ONE_PER_MATCH_STATUSES);
     }
 
     /**

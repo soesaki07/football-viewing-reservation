@@ -736,14 +736,91 @@ class ReservationTest extends TestCase
         $this->assertSame(1, Reservation::confirmed()->count());
     }
 
-    public function test_visited_and_no_show_reservations_do_not_block_same_match(): void
+    /**
+     * 指定した状態の予約を作る（状態は forceFill で設定する）。
+     */
+    private function addReservationWithStatus(BroadcastSeatType $seatType, User $user, string $status): Reservation
     {
-        foreach ([Reservation::STATUS_VISITED, Reservation::STATUS_NO_SHOW] as $status) {
-            $this->addReservation($this->seatType, 1, $this->user)->forceFill(['status' => $status])->save();
-        }
+        $reservation = $this->addReservation($seatType, 1, $user);
+        $reservation->forceFill(['status' => $status])->save();
+
+        return $reservation;
+    }
+
+    public function test_has_reserved_match_counts_visited_but_not_no_show(): void
+    {
         $service = new ReservationService;
 
+        $this->addReservationWithStatus($this->seatType, $this->user, Reservation::STATUS_NO_SHOW);
         $this->assertFalse($service->hasReservedMatch($this->user, $this->match->id));
+
+        $this->addReservationWithStatus($this->seatType, $this->user, Reservation::STATUS_VISITED);
+        $this->assertTrue($service->hasReservedMatch($this->user, $this->match->id));
+    }
+
+    public function test_visited_reservation_blocks_same_match_at_other_shop_and_same_shop(): void
+    {
+        $otherBroadcast = $this->createBroadcast($this->match);
+        $otherSeatType = $this->addSeatType($otherBroadcast, 10, 3000);
+        $this->addReservationWithStatus($this->seatType, $this->user, Reservation::STATUS_VISITED);
+
+        // 別の店舗・同じ店舗のどちらでも、入力・確認・確定のすべてで拒否される
+        foreach ([[$otherBroadcast, $otherSeatType], [$this->broadcast, $this->seatType]] as [$broadcast, $seatType]) {
+            $input = $this->input(['broadcast_seat_type_id' => $seatType->id]);
+
+            $this->actingAs($this->user)->get(route('reservations.create', $broadcast))
+                ->assertRedirect(route('matches.show', $this->match->id))
+                ->assertSessionHas('error', 'この試合はすでに予約済みです。');
+
+            $this->actingAs($this->user)->post(route('reservations.confirm', $broadcast), $input)
+                ->assertRedirect(route('matches.show', $this->match->id))
+                ->assertSessionHas('error', 'この試合はすでに予約済みです。');
+
+            $this->actingAs($this->user)
+                ->withSession(['reservation_input.'.$broadcast->id => $input])
+                ->post(route('reservations.store', $broadcast))
+                ->assertRedirect(route('reservations.create', $broadcast))
+                ->assertSessionHas('error', 'この試合はすでに予約済みです。');
+        }
+
+        $this->assertSame(1, Reservation::count());
+    }
+
+    public function test_reserve_rejects_visited_reservation_after_lock(): void
+    {
+        $this->addReservationWithStatus($this->seatType, $this->user, Reservation::STATUS_VISITED);
+
+        try {
+            app(ReservationService::class)->reserve($this->user, $this->broadcast, $this->seatType->id, 1, 3000, null);
+            $this->fail('例外が投げられるはず');
+        } catch (ReservationException $e) {
+            $this->assertSame(ReservationService::ALREADY_RESERVED_MESSAGE, $e->getMessage());
+        }
+
+        $this->assertSame(1, Reservation::count());
+    }
+
+    #[DataProvider('notCountedForOnePerMatchStatuses')]
+    public function test_no_show_and_cancelled_reservations_do_not_block_same_match(string $status): void
+    {
+        $otherBroadcast = $this->createBroadcast($this->match);
+        $otherSeatType = $this->addSeatType($otherBroadcast, 10, 3000);
+        $this->addReservationWithStatus($this->seatType, $this->user, $status);
+
+        $this->confirmAndStore($otherBroadcast, ['broadcast_seat_type_id' => $otherSeatType->id])->assertRedirect();
+
+        $this->assertSame(1, Reservation::confirmed()->count());
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function notCountedForOnePerMatchStatuses(): array
+    {
+        return [
+            'no_show' => [Reservation::STATUS_NO_SHOW],
+            'cancelled' => [Reservation::STATUS_CANCELLED],
+        ];
     }
 
     public function test_other_users_reservation_does_not_block_same_match(): void
@@ -1098,25 +1175,30 @@ class ReservationTest extends TestCase
             ->assertSee('予約する');
     }
 
-    #[DataProvider('nonConfirmedStatuses')]
-    public function test_match_show_ignores_visited_and_no_show_reservations(string $status): void
+    public function test_match_show_displays_reserved_badge_for_visited_reservation(): void
     {
-        $this->addReservation($this->seatType, 1, $this->user)->forceFill(['status' => $status])->save();
+        $otherBroadcast = $this->createBroadcast($this->match);
+        $this->addSeatType($otherBroadcast, 10, 3000);
+        $reservation = $this->addReservationWithStatus($this->seatType, $this->user, Reservation::STATUS_VISITED);
+
+        // 来店済みでも、予約した店舗の行に「予約済み」と予約詳細へのリンクを出し、どの店舗にも「予約する」を出さない
+        $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
+            ->assertOk()
+            ->assertSee('予約済み')
+            ->assertSee('予約内容を見る')
+            ->assertSee(route('reservations.show', $reservation), false)
+            ->assertDontSee('予約する')
+            ->assertDontSee(route('reservations.create', $otherBroadcast), false)
+            ->assertDontSee(route('reservations.create', $this->broadcast), false);
+    }
+
+    public function test_match_show_ignores_no_show_reservation(): void
+    {
+        $this->addReservationWithStatus($this->seatType, $this->user, Reservation::STATUS_NO_SHOW);
 
         $this->actingAs($this->user)->get(route('matches.show', $this->match->id))
             ->assertDontSee('予約済み')
             ->assertSee('予約する');
-    }
-
-    /**
-     * @return array<string, array{string}>
-     */
-    public static function nonConfirmedStatuses(): array
-    {
-        return [
-            'visited' => [Reservation::STATUS_VISITED],
-            'no_show' => [Reservation::STATUS_NO_SHOW],
-        ];
     }
 
     public function test_match_show_ignores_reservation_of_other_match(): void
