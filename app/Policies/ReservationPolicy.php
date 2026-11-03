@@ -31,11 +31,29 @@ class ReservationPolicy
     }
 
     /**
+     * 店舗側の予約詳細の閲覧は、その予約の放映の店舗のオーナー（shop_owner）だけができる。
+     * 本人用の view や、更新用の updateVisitStatus とは別にして、閲覧できる人を広げても更新できる人が増えないようにする。
+     * 他店の予約・削除済みの店舗の予約は存在を隠すため 404、shop_owner 以外は 403 にする。
+     */
+    public function viewAsShopOwner(User $user, Reservation $reservation): Response
+    {
+        return $this->ownsShopOf($user, $reservation);
+    }
+
+    /**
      * 来店状態（来店済み・来店なし）の更新は、その予約の放映の店舗のオーナー（shop_owner）だけができる。
      * Gate（access-owner-area）に加えてここでもロールを確かめる。他店の予約・削除済みの店舗の予約は存在を隠すため 404 にする。
      * 更新できる状態か（時期・遷移）はここでは見ない（モデル・サービスで判定する）。
      */
     public function updateVisitStatus(User $user, Reservation $reservation): Response
+    {
+        return $this->ownsShopOf($user, $reservation);
+    }
+
+    /**
+     * shop_owner であり、かつ予約の放映の店舗が自分のものかを確かめる。
+     */
+    private function ownsShopOf(User $user, Reservation $reservation): Response
     {
         if ($user->role !== 'shop_owner') {
             return Response::deny();
