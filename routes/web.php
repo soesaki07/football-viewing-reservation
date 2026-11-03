@@ -50,6 +50,8 @@ Route::middleware('auth')->group(function () {
     // 店舗オーナー向け（shop_owner 以外は 403）
     Route::middleware('can:access-owner-area')->prefix('owner')->name('owner.')->group(function () {
         Route::get('/shops', [OwnerShopController::class, 'index'])->name('shops.index');
+        Route::get('/shops/create', [OwnerShopController::class, 'create'])->name('shops.create');
+        Route::post('/shops', [OwnerShopController::class, 'store'])->name('shops.store');
         Route::get('/shops/{shop}/edit', [OwnerShopController::class, 'edit'])->whereNumber('shop')->name('shops.edit');
         Route::put('/shops/{shop}', [OwnerShopController::class, 'update'])->whereNumber('shop')->name('shops.update');
         Route::get('/reservations', [OwnerReservationController::class, 'index'])->name('reservations.index');

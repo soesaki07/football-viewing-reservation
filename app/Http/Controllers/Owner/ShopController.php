@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Owner;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreShopRequest;
 use App\Http\Requests\UpdateShopRequest;
 use App\Models\Shop;
 use App\Models\User;
@@ -25,6 +26,33 @@ class ShopController extends Controller
         $shops = Shop::query()->where('user_id', $user->id)->orderBy('id')->get();
 
         return view('owner.shops.index', compact('shops') + $this->headerData($request));
+    }
+
+    /**
+     * 店舗の登録画面。
+     */
+    public function create(Request $request): View
+    {
+        // shop_owner 以外は 403
+        Gate::authorize('create', Shop::class);
+
+        return view('owner.shops.create', ['shop' => new Shop] + $this->headerData($request));
+    }
+
+    /**
+     * 店舗を登録する。入力の検証・認可は StoreShopRequest で行う。
+     * 持ち主はログイン中のユーザー、公開状態は非公開に固定する（リクエストの値は使わない）。
+     */
+    public function store(StoreShopRequest $request): RedirectResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        $user->shops()->create($request->shopAttributes() + ['status' => Shop::STATUS_DRAFT]);
+
+        return redirect()
+            ->route('owner.shops.index')
+            ->with('success', '店舗を登録しました。座席種別と放映を登録してから公開してください。');
     }
 
     /**

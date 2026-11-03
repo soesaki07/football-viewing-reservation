@@ -7,12 +7,18 @@
         店舗情報
     </h1>
 
+    <div>
+        <a href="{{ route('owner.shops.create') }}" class="inline-block rounded-md bg-pitch-800 px-6 py-2 text-sm font-bold text-white transition hover:bg-pitch-700">店舗を登録する</a>
+    </div>
+
     @if (session('success'))
         <p class="rounded-xl border border-pitch-100 bg-pitch-50 p-4 text-sm font-bold text-pitch-950" role="status">{{ session('success') }}</p>
     @endif
 
     @if ($shops->isEmpty())
-        <p class="rounded-xl border border-pitch-100 bg-white p-6 text-sm text-pitch-700">店舗がありません。</p>
+        <p class="rounded-xl border border-pitch-100 bg-white p-6 text-sm text-pitch-700">
+            店舗がありません。<a href="{{ route('owner.shops.create') }}" class="font-bold text-pitch-700 underline hover:text-gold-500">店舗を登録する</a>
+        </p>
     @else
         {{-- スマホ幅ではテーブルの中だけを横スクロールさせる --}}
         <div class="overflow-x-auto rounded-xl border border-pitch-100 bg-white shadow-sm">
