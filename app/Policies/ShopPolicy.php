@@ -9,6 +9,16 @@ use Illuminate\Auth\Access\Response;
 class ShopPolicy
 {
     /**
+     * 店舗の登録は shop_owner だけができる（それ以外は 403）。
+     */
+    public function create(User $user): Response
+    {
+        return $user->role === 'shop_owner'
+            ? Response::allow()
+            : Response::deny();
+    }
+
+    /**
      * 店舗の予約一覧は、その店舗のオーナーだけが見られる。他のオーナーの店舗は存在を隠すため 404 にする。
      * user_id は DB ドライバによって文字列で返ることがあるため、型をそろえて比べる。
      */

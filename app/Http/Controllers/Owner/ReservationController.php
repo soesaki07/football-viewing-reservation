@@ -26,6 +26,9 @@ class ReservationController extends Controller
 
     private const PER_PAGE = 20;
 
+    // 来店状態の更新の戻り先が詳細であることを示す値
+    private const RETURN_SHOW = 'show';
+
     /**
      * 店舗オーナーの予約一覧。選択中の店舗の予約を、今後・過去のタブと試合で絞り込んで表示する。
      */
@@ -105,16 +108,47 @@ class ReservationController extends Controller
     }
 
     /**
+     * 店舗オーナーの予約詳細。自分の店舗の予約だけが対象（他店・削除済みの店舗の予約は 404）。
+     * 一覧に戻るときの条件（期間・試合・ページ）はクエリで受け取り、形式を確かめた値だけを使う。
+     */
+    public function show(Request $request, Reservation $reservation): View
+    {
+        Gate::authorize('viewAsShopOwner', $reservation);
+
+        $reservation->loadMissing([
+            // ユーザーは名前だけ取得する（メールアドレスなどは扱わない）
+            'user:id,name',
+            'broadcastSeatType.seatType',
+            'broadcastSeatType.broadcast.footballMatch.homeTeam',
+            'broadcastSeatType.broadcast.footballMatch.awayTeam',
+        ]);
+
+        $listConditions = $this->listConditions($request, $reservation);
+
+        // ヘッダーのナビ（お気に入りチームの絞り込み）が使う値
+        /** @var User $user */
+        $user = Auth::user();
+        $hasFavoriteTeams = $user->favoriteTeams->isNotEmpty();
+        $showFavoriteOnly = $hasFavoriteTeams && $request->boolean('favorite', true);
+
+        return view('owner.reservations.show', compact('reservation', 'listConditions', 'hasFavoriteTeams', 'showFavoriteOnly'));
+    }
+
+    /**
      * 予約の来店状態（来店済み・来店なし）を更新する。自分の店舗の予約だけが対象（他店は 404）。
-     * 一覧へ戻す（店舗・期間・試合・ページの条件は保つ。外部の URL へは飛ばさない）。
+     * 一覧（詳細から送られたときは詳細）へ戻す（店舗・期間・試合・ページの条件は保つ。戻り先はサーバー側で決めたルートだけで、外部の URL へは飛ばさない）。
      */
     public function updateVisitStatus(Request $request, Reservation $reservation, ReservationService $reservationService): RedirectResponse
     {
         // 他店の予約の存在を隠すため、入力の検証より先に認可する
         Gate::authorize('updateVisitStatus', $reservation);
 
-        // 失敗したときも、Referer ではなく成功・失敗のときと同じ一覧の URL へ戻す
-        $redirect = redirect()->route('owner.reservations.index', $this->listConditions($request, $reservation));
+        // 失敗したときも、Referer ではなく成功・失敗のときと同じ URL へ戻す。
+        // 詳細から送られたとき（return=show）だけ詳細へ、それ以外は一覧へ（送られた値は URL として使わない）
+        $conditions = $this->listConditions($request, $reservation);
+        $redirect = $request->input('return') === self::RETURN_SHOW
+            ? redirect()->route('owner.reservations.show', ['reservation' => $reservation] + $conditions)
+            : redirect()->route('owner.reservations.index', $conditions);
 
         $validator = Validator::make($request->all(), [
             'status' => ['required', 'string', Rule::in([Reservation::STATUS_VISITED, Reservation::STATUS_NO_SHOW])],
