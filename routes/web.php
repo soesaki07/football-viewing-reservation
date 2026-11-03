@@ -31,7 +31,7 @@ if (app()->isLocal()) {
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
 Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
-Route::post('/register', [RegisterController::class, 'register']);
+Route::post('/register', [RegisterController::class, 'register'])->middleware('throttle:register');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::middleware('auth')->group(function () {
     Route::get('/matches', [MatchController::class, 'index'])->name('matches.index');
@@ -51,9 +51,9 @@ Route::middleware('auth')->group(function () {
     Route::middleware('can:access-owner-area')->prefix('owner')->name('owner.')->group(function () {
         Route::get('/shops', [OwnerShopController::class, 'index'])->name('shops.index');
         Route::get('/shops/create', [OwnerShopController::class, 'create'])->name('shops.create');
-        Route::post('/shops', [OwnerShopController::class, 'store'])->name('shops.store');
-        Route::get('/shops/{shop}/edit', [OwnerShopController::class, 'edit'])->whereNumber('shop')->name('shops.edit');
-        Route::put('/shops/{shop}', [OwnerShopController::class, 'update'])->whereNumber('shop')->name('shops.update');
+        Route::post('/shops', [OwnerShopController::class, 'store'])->middleware('throttle:owner-shop-store')->name('shops.store');
+        Route::get('/shops/{shop}/edit', [OwnerShopController::class, 'edit'])->name('shops.edit');
+        Route::put('/shops/{shop}', [OwnerShopController::class, 'update'])->name('shops.update');
         Route::get('/reservations', [OwnerReservationController::class, 'index'])->name('reservations.index');
         Route::get('/reservations/{reservation}', [OwnerReservationController::class, 'show'])->name('reservations.show');
         Route::patch('/reservations/{reservation}/visit-status', [OwnerReservationController::class, 'updateVisitStatus'])->name('reservations.visit-status');

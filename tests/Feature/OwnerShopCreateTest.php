@@ -309,4 +309,40 @@ class OwnerShopCreateTest extends TestCase
                 ->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;', false);
         }
     }
+
+    // ---- 回数制限 ----
+
+    public function test_eleventh_store_request_by_same_user_gets_429(): void
+    {
+        for ($i = 0; $i < 10; $i++) {
+            $this->store($this->validInput())->assertRedirect(route('owner.shops.index'));
+        }
+
+        $this->store($this->validInput())
+            ->assertStatus(429)
+            ->assertSee('アクセスが集中しています。しばらく待ってからもう一度お試しください。');
+        $this->assertDatabaseCount('shops', 10);
+
+        // 別のオーナーは影響を受けない
+        $other = User::factory()->shopOwner()->create();
+        $this->actingAs($other)->post(route('owner.shops.store'), $this->validInput())
+            ->assertRedirect(route('owner.shops.index'));
+
+        // 1分たつと戻る
+        $this->travel(61)->seconds();
+        $this->store($this->validInput())->assertRedirect(route('owner.shops.index'));
+    }
+
+    public function test_non_owner_requests_are_counted_before_authorization(): void
+    {
+        $user = User::factory()->create();
+
+        // throttle は認可より先に動く：10回目までは 403、11回目は 429
+        for ($i = 0; $i < 10; $i++) {
+            $this->actingAs($user)->post(route('owner.shops.store'), $this->validInput())->assertForbidden();
+        }
+
+        $this->actingAs($user)->post(route('owner.shops.store'), $this->validInput())->assertStatus(429);
+        $this->assertDatabaseCount('shops', 0);
+    }
 }
