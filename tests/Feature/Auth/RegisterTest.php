@@ -74,4 +74,36 @@ class RegisterTest extends TestCase
         $response->assertSessionHasErrors('date_of_birth');
         $this->assertNull(User::where('email', 'taro@example.com')->first());
     }
+
+    public function test_sixth_register_request_from_same_ip_gets_429(): void
+    {
+        // 失敗（入力エラー）も回数に数える
+        for ($i = 0; $i < 5; $i++) {
+            $this->post('/register', [])->assertSessionHasErrors('name');
+        }
+
+        $this->post('/register', $this->validPayload())
+            ->assertStatus(429)
+            ->assertSee('アクセスが集中しています。しばらく待ってからもう一度お試しください。');
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_register_is_allowed_again_after_one_minute_and_other_ip_is_not_affected(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $this->post('/register', []);
+        }
+        $this->post('/register', $this->validPayload())->assertStatus(429);
+
+        // 別の IP は影響を受けない
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.9'])
+            ->post('/register', $this->validPayload())
+            ->assertRedirect(route('select.teams'));
+        $this->post('/logout');
+
+        $this->travel(61)->seconds();
+
+        $this->post('/register', $this->validPayload(['email' => 'hanako@example.com']))
+            ->assertRedirect(route('select.teams'));
+    }
 }
