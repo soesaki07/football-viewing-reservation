@@ -14,7 +14,7 @@
     <a href="{{ route('matches.show', $broadcast->football_match_id) }}" class="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-pitch-700 transition hover:text-gold-500">← 試合詳細に戻る</a>
 
     @if (session('error'))
-        <p class="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700" role="alert">{{ session('error') }}</p>
+        <x-alert variant="error" class="mb-4">{{ session('error') }}</x-alert>
     @endif
 
     <form method="POST" action="{{ route('reservations.confirm', $broadcast) }}" class="space-y-6 rounded-xl border border-pitch-100 bg-white p-6 shadow-sm">

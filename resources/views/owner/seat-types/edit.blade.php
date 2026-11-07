@@ -10,7 +10,7 @@
     <p class="text-sm font-semibold text-pitch-500">店舗：<span class="text-pitch-950">{{ $shop->name }}</span></p>
 
     @unless ($seatType->is_active)
-        <p class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">この座席種別は無効です。有効にするには、一覧の「有効にする」を押してください。</p>
+        <x-alert variant="error" role="status">この座席種別は無効です。有効にするには、一覧の「有効にする」を押してください。</x-alert>
     @endunless
 
     <form method="POST" action="{{ route('owner.seat-types.update', $seatType) }}" class="space-y-6 rounded-xl border border-pitch-100 bg-white p-4 shadow-sm">

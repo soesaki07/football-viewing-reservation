@@ -12,7 +12,7 @@
     </div>
 
     @if (session('success'))
-        <p class="rounded-xl border border-pitch-100 bg-pitch-50 p-4 text-sm font-bold text-pitch-950" role="status">{{ session('success') }}</p>
+        <x-alert variant="success">{{ session('success') }}</x-alert>
     @endif
 
     @if ($shops->isEmpty())

@@ -9,13 +9,7 @@
     <p class="mb-6 text-sm font-medium text-pitch-700">最大３チームまで</p>
 
     @if ($errors->any())
-        <div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            <ul class="list-inside list-disc space-y-1">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
+        <x-alert variant="error" class="mb-6" :messages="$errors->all()" />
     @endif
 
     <div id="selected-team-names" class="mb-4 flex min-h-8 flex-wrap items-center gap-2"></div>

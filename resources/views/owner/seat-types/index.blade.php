@@ -11,10 +11,10 @@
         <p class="rounded-xl border border-pitch-100 bg-white p-6 text-sm text-pitch-700">店舗が登録されていません。</p>
     @else
         @if (session('success'))
-            <p class="rounded-xl border border-pitch-100 bg-pitch-50 p-4 text-sm font-bold text-pitch-950" role="status">{{ session('success') }}</p>
+            <x-alert variant="success">{{ session('success') }}</x-alert>
         @endif
         @if ($errors->has('is_active'))
-            <p class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700" role="alert">{{ $errors->first('is_active') }}</p>
+            <x-alert variant="error">{{ $errors->first('is_active') }}</x-alert>
         @endif
 
         {{-- 店舗の切り替え（2店舗以上のときだけ） --}}
