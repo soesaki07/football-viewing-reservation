@@ -1,37 +1,33 @@
-<a href="{{ route('matches.show', $footballMatch) }}" class="group relative overflow-hidden rounded-xl border border-pitch-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-    <span class="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-pitch-600 to-gold-500"></span>
-
-    <p class="mb-3 flex items-center justify-between gap-3 text-base font-bold text-pitch-950 sm:text-lg">
-        <span class="flex min-w-0 items-center gap-2">
+<a href="{{ route('matches.show', $footballMatch) }}" class="group flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-5 shadow-sm ring-1 ring-outline-variant/40 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary">
+    <div class="flex items-center justify-between gap-3 text-base font-bold text-primary sm:text-lg">
+        <span class="flex min-w-0 flex-1 items-center gap-2">
             @if ($footballMatch->homeTeam->crest_url)
-                <img src="{{ $footballMatch->homeTeam->crest_url }}" alt="" class="h-6 w-6 shrink-0 object-contain">
+                <img src="{{ $footballMatch->homeTeam->crest_url }}" alt="" class="h-7 w-7 shrink-0 object-contain">
             @endif
             <span class="truncate">{{ $footballMatch->homeTeam->tla ?? $footballMatch->homeTeam->displayShortName() }}</span>
         </span>
 
         @if (! is_null($footballMatch->home_score) && ! is_null($footballMatch->away_score))
-            <span class="shrink-0 rounded-full bg-pitch-950 px-3 py-0.5 text-sm font-extrabold text-gold-400">
+            <span data-testid="match-score" class="shrink-0 rounded-lg bg-primary-container px-3 py-1 text-sm font-extrabold text-on-primary">
                 {{ $footballMatch->home_score }} - {{ $footballMatch->away_score }}
             </span>
         @else
-            <span class="shrink-0 rounded-full bg-pitch-950 px-2 py-0.5 text-xs font-semibold text-gold-400">VS</span>
+            <span data-testid="match-vs" class="shrink-0 rounded-lg bg-surface-container px-2.5 py-1 text-xs font-bold text-on-surface-variant">VS</span>
         @endif
 
-        <span class="flex min-w-0 items-center justify-end gap-2">
+        <span class="flex min-w-0 flex-1 items-center justify-end gap-2">
             <span class="truncate text-right">{{ $footballMatch->awayTeam->tla ?? $footballMatch->awayTeam->displayShortName() }}</span>
             @if ($footballMatch->awayTeam->crest_url)
-                <img src="{{ $footballMatch->awayTeam->crest_url }}" alt="" class="h-6 w-6 shrink-0 object-contain">
+                <img src="{{ $footballMatch->awayTeam->crest_url }}" alt="" class="h-7 w-7 shrink-0 object-contain">
             @endif
         </span>
-    </p>
+    </div>
 
-    <p class="flex items-center justify-between gap-2 text-sm font-medium text-pitch-700">
+    <div class="flex items-center justify-between gap-2 border-t border-outline-variant/40 pt-3 text-sm font-medium text-on-surface-variant">
         <span>
             {{ $footballMatch->kickoff_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}
-            <span class="text-pitch-500">(JST)</span>
+            <span class="text-outline">(JST)</span>
         </span>
-        <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-bold {{ $footballMatch->statusInfo()['class'] }}">
-            {{ $footballMatch->statusInfo()['label'] }}
-        </span>
-    </p>
+        <x-match.status-badge :match="$footballMatch" class="shrink-0" />
+    </div>
 </a>
