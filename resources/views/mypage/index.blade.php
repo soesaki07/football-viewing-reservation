@@ -1,46 +1,47 @@
 @extends('layouts.app')
 @section('title', 'マイページ')
 @section('content')
+<div class="mx-auto max-w-3xl">
+    <x-page-header title="マイページ" />
+</div>
 <div class="mx-auto max-w-3xl space-y-10">
-    <h1 class="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-pitch-950 sm:text-3xl">
-        <span class="text-gold-500">👤</span>
-        マイページ
-    </h1>
 
     <section>
-        <h2 class="mb-3 text-lg font-bold text-pitch-950">ユーザー情報</h2>
-        <dl class="grid gap-3 rounded-xl border border-pitch-100 bg-white p-6 text-sm text-pitch-700 shadow-sm sm:grid-cols-[8rem_1fr]">
-            <dt class="font-semibold text-pitch-500">名前</dt>
-            <dd>{{ $user->name }}</dd>
-            <dt class="font-semibold text-pitch-500">メールアドレス</dt>
-            <dd>{{ $user->email }}</dd>
-        </dl>
+        <h2 class="mb-3 font-headline text-lg font-semibold text-primary">ユーザー情報</h2>
+        <x-card>
+            <dl class="grid gap-3 text-sm sm:grid-cols-[8rem_1fr]">
+                <dt class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">名前</dt>
+                <dd class="break-words text-on-surface">{{ $user->name }}</dd>
+                <dt class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">メールアドレス</dt>
+                <dd class="break-all text-on-surface">{{ $user->email }}</dd>
+            </dl>
+        </x-card>
     </section>
 
     <section>
-        <h2 class="mb-3 text-lg font-bold text-pitch-950">今後の予約</h2>
+        <h2 class="mb-3 font-headline text-lg font-semibold text-primary">今後の予約</h2>
         @include('mypage._reservation_list', ['reservations' => $upcomingReservations, 'emptyMessage' => '今後の予約はありません。'])
     </section>
 
     <section>
-        <h2 class="mb-3 text-lg font-bold text-pitch-950">過去の予約</h2>
+        <h2 class="mb-3 font-headline text-lg font-semibold text-primary">過去の予約</h2>
         @include('mypage._reservation_list', ['reservations' => $pastReservations, 'emptyMessage' => '過去の予約はありません。'])
     </section>
 
     <section>
-        <h2 class="mb-3 text-lg font-bold text-pitch-950">お気に入りチーム</h2>
-        <div class="rounded-xl border border-pitch-100 bg-white p-6 text-sm text-pitch-700 shadow-sm">
+        <h2 class="mb-3 font-headline text-lg font-semibold text-primary">お気に入りチーム</h2>
+        <x-card class="space-y-4 text-sm text-on-surface-variant">
             @if ($favoriteTeams->isEmpty())
                 <p>お気に入りチームはまだ登録されていません。</p>
             @else
-                <ul class="list-inside list-disc space-y-1">
+                <ul class="flex flex-wrap gap-2">
                     @foreach ($favoriteTeams as $team)
-                        <li>{{ $team->displayName() }}</li>
+                        <li><x-badge variant="neutral" class="px-3 py-1 text-sm">{{ $team->displayName() }}</x-badge></li>
                     @endforeach
                 </ul>
             @endif
-            <a href="{{ route('select.teams') }}" class="mt-4 inline-block font-bold text-pitch-700 underline transition hover:text-gold-500">お気に入り登録</a>
-        </div>
+            <x-button variant="secondary" size="sm" :href="route('select.teams')">お気に入り登録</x-button>
+        </x-card>
     </section>
 </div>
 @endsection
