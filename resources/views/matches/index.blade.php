@@ -6,19 +6,11 @@
     試合一覧
 </h1>
 @if (session('success'))
-    <div class="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-        {{ session('success') }}
-    </div>
+    <x-alert variant="success" class="mb-6">{{ session('success') }}</x-alert>
 @endif
 
 @if ($searchErrors->any())
-    <div role="alert" class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        <ul class="list-inside list-disc">
-            @foreach ($searchErrors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
+    <x-alert variant="error" class="mb-6" :messages="$searchErrors->all()" />
 @endif
 
 <form method="GET" action="{{ route('matches.index') }}" role="search"

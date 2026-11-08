@@ -19,3 +19,12 @@ document.addEventListener('submit', (event) => {
     event.preventDefault();
   }
 });
+
+// data-history-back を持つリンクは、ブラウザの「戻る」を実行する（履歴がなければ、リンク先へ移る）
+document.addEventListener('click', (event) => {
+  const link = event.target instanceof Element ? event.target.closest('[data-history-back]') : null;
+  if (link && window.history.length > 1) {
+    event.preventDefault();
+    window.history.back();
+  }
+});

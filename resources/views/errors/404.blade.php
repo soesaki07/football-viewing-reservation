@@ -1,0 +1,6 @@
+@extends('layouts.error')
+@section('title', '404')
+@section('code', '404')
+@section('heading', 'お探しのページが見つかりませんでした')
+@section('message', 'URL が間違っているか、ページが移動または削除された可能性があります。')
+@section('back', '1')

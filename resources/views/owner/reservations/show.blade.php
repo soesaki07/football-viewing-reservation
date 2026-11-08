@@ -12,13 +12,13 @@
     </h1>
 
     @if (session('success'))
-        <p class="rounded-xl border border-pitch-100 bg-pitch-50 p-4 text-sm font-bold text-pitch-950" role="status">{{ session('success') }}</p>
+        <x-alert variant="success">{{ session('success') }}</x-alert>
     @endif
     @if (session('error'))
-        <p class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700" role="alert">{{ session('error') }}</p>
+        <x-alert variant="error">{{ session('error') }}</x-alert>
     @endif
     @error('status')
-        <p class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700" role="alert">{{ $message }}</p>
+        <x-alert variant="error">{{ $message }}</x-alert>
     @enderror
 
     <div class="space-y-6 rounded-xl border border-pitch-100 bg-white p-6 shadow-sm">

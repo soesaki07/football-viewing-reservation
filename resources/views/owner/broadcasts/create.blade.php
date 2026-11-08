@@ -12,13 +12,7 @@
     @else
         {{-- 試合のエラー（試合は画面上の入力欄がないので、ここで理由を見せる） --}}
         @if ($errors->has('football_match_id'))
-            <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700" role="alert">
-                <ul class="list-disc space-y-1 pl-5">
-                    @foreach ($errors->get('football_match_id') as $message)
-                        <li>{{ $message }}</li>
-                    @endforeach
-                </ul>
-            </div>
+            <x-alert variant="error" :messages="$errors->get('football_match_id')" />
         @endif
 
         {{-- 店舗の切り替え（2店舗以上のときだけ） --}}

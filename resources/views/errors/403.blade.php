@@ -1,0 +1,5 @@
+@extends('layouts.error')
+@section('title', '403')
+@section('code', '403')
+@section('heading', 'アクセス権限がありません')
+@section('message', 'このページまたは操作を行う権限がありません。ログインし直すか、アカウントの権限をご確認ください。')

@@ -92,7 +92,7 @@
             放映店舗
         </h2>
         @if (session('error'))
-            <p class="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700" role="alert">{{ session('error') }}</p>
+            <x-alert variant="error" class="mb-4">{{ session('error') }}</x-alert>
         @endif
         @if ($isFinished)
             <p class="rounded-xl border border-pitch-100 bg-white p-6 text-center text-sm text-pitch-700 shadow-sm">この試合の放映は終了しました。</p>

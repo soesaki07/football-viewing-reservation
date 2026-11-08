@@ -6,12 +6,10 @@
     予約詳細
 </h1>
 @if (session('success'))
-    <div class="mx-auto mb-6 max-w-3xl rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-        {{ session('success') }}
-    </div>
+    <x-alert variant="success" class="mx-auto mb-6 max-w-3xl">{{ session('success') }}</x-alert>
 @endif
 @if (session('error'))
-    <p class="mx-auto mb-6 max-w-3xl rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700" role="alert">{{ session('error') }}</p>
+    <x-alert variant="error" class="mx-auto mb-6 max-w-3xl">{{ session('error') }}</x-alert>
 @endif
 <div class="mx-auto max-w-3xl space-y-6 rounded-xl border border-pitch-100 bg-white p-6 shadow-sm">
     <dl class="grid gap-3 text-sm text-pitch-700 sm:grid-cols-[8rem_1fr]">
