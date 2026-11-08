@@ -1,50 +1,51 @@
 @extends('layouts.app')
 @section('title', '予約詳細')
 @section('content')
-<h1 class="mb-6 flex items-center gap-2 text-2xl font-extrabold tracking-tight text-pitch-950 sm:text-3xl">
-    <span class="text-gold-500">🎫</span>
-    予約詳細
-</h1>
-@if (session('success'))
-    <x-alert variant="success" class="mx-auto mb-6 max-w-3xl">{{ session('success') }}</x-alert>
-@endif
-@if (session('error'))
-    <x-alert variant="error" class="mx-auto mb-6 max-w-3xl">{{ session('error') }}</x-alert>
-@endif
-<div class="mx-auto max-w-3xl space-y-6 rounded-xl border border-pitch-100 bg-white p-6 shadow-sm">
-    <dl class="grid gap-3 text-sm text-pitch-700 sm:grid-cols-[8rem_1fr]">
-        <dt class="font-semibold text-pitch-500">予約コード</dt>
-        <dd class="text-2xl font-extrabold tracking-widest text-pitch-950">{{ $reservation->reservation_code }}</dd>
-        <dt class="font-semibold text-pitch-500">予約状態</dt>
-        <dd class="font-bold text-pitch-950">{{ $reservation->statusLabel() }}</dd>
-    </dl>
+<div class="mx-auto max-w-3xl">
+    <x-page-header title="予約詳細" />
 
-    @include('reservations._match_summary', ['footballMatch' => $broadcast->footballMatch, 'shop' => $shop])
-
-    <dl class="grid gap-3 border-t border-pitch-100 pt-4 text-sm text-pitch-700 sm:grid-cols-[8rem_1fr]">
-        <dt class="font-semibold text-pitch-500">座席</dt>
-        <dd>{{ $reservation->broadcastSeatType->seatType->name }}</dd>
-        <dt class="font-semibold text-pitch-500">人数</dt>
-        <dd>{{ $reservation->number_of_people }}人</dd>
-        <dt class="font-semibold text-pitch-500">合計金額</dt>
-        <dd class="text-lg font-extrabold text-pitch-950">{{ number_format($reservation->total_price) }}円</dd>
-        @if ($reservation->customer_note)
-            <dt class="font-semibold text-pitch-500">備考</dt>
-            <dd class="whitespace-pre-line">{{ $reservation->customer_note }}</dd>
-        @endif
-    </dl>
-
-    @if ($canCancel)
-        <form method="POST" action="{{ route('reservations.cancel', $reservation) }}" data-confirm="この予約をキャンセルしますか？" class="border-t border-pitch-100 pt-4">
-            @csrf
-            @method('PATCH')
-            <button type="submit" class="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-50">この予約をキャンセルする</button>
-        </form>
+    @if (session('success'))
+        <x-alert variant="success" class="mb-6">{{ session('success') }}</x-alert>
+    @endif
+    @if (session('error'))
+        <x-alert variant="error" class="mb-6">{{ session('error') }}</x-alert>
     @endif
 
-    <div class="flex flex-wrap gap-4 text-sm font-semibold text-pitch-700">
-        <a href="{{ route('mypage') }}" class="transition hover:text-gold-500">マイページに戻る</a>
-        <a href="{{ route('matches.show', $broadcast->football_match_id) }}" class="transition hover:text-gold-500">試合詳細へ</a>
-    </div>
+    <x-card class="space-y-6 sm:p-6">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">予約コード</p>
+                <p class="mt-1 break-all font-headline text-2xl font-bold tracking-widest text-primary" data-testid="reservation-code">{{ $reservation->reservation_code }}</p>
+            </div>
+            <div>
+                <span class="sr-only">予約状態：</span>
+                <x-reservation.status-badge :reservation="$reservation" class="px-3 py-1 text-sm" />
+            </div>
+        </div>
+
+        <x-reservation.match-summary :football-match="$broadcast->footballMatch" :shop="$shop" :show-address="true" />
+
+        <x-reservation.summary
+            :seat-name="$reservation->broadcastSeatType->seatType->name"
+            :number-of-people="$reservation->number_of_people"
+            :unit-price="$reservation->unit_price"
+            :total-price="$reservation->total_price"
+            :note="$reservation->customer_note"
+            :reserved-at="$reservation->reserved_at"
+            :cancelled-at="$reservation->cancelled_at" />
+
+        @if ($canCancel)
+            <form method="POST" action="{{ route('reservations.cancel', $reservation) }}" data-confirm="この予約をキャンセルしますか？" class="border-t border-outline-variant/50 pt-4">
+                @csrf
+                @method('PATCH')
+                <x-button variant="danger" type="submit">この予約をキャンセルする</x-button>
+            </form>
+        @endif
+
+        <div class="flex flex-col gap-3 border-t border-outline-variant/50 pt-4 sm:flex-row sm:items-center">
+            <x-button variant="secondary" :href="route('mypage')">マイページに戻る</x-button>
+            <x-button variant="secondary" :href="route('matches.show', $broadcast->football_match_id)">試合詳細へ</x-button>
+        </div>
+    </x-card>
 </div>
 @endsection

@@ -1,69 +1,67 @@
 @extends('layouts.app')
 @section('title', '予約入力')
 @section('content')
-<h1 class="mb-6 flex items-center gap-2 text-2xl font-extrabold tracking-tight text-pitch-950 sm:text-3xl">
-    <span class="text-gold-500">🍺</span>
-    予約入力
-</h1>
 @php
     $selectedSeatType = (int) old('broadcast_seat_type_id', $input['broadcast_seat_type_id'] ?? 0);
-    $numberOfPeople = old('number_of_people', $input['number_of_people'] ?? 1);
-    $customerNote = old('customer_note', $input['customer_note'] ?? '');
+    $numberOfPeople = $input['number_of_people'] ?? 1;
+    $customerNote = $input['customer_note'] ?? '';
 @endphp
 <div class="mx-auto max-w-3xl">
-    <a href="{{ route('matches.show', $broadcast->football_match_id) }}" class="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-pitch-700 transition hover:text-gold-500">← 試合詳細に戻る</a>
+    <a href="{{ route('matches.show', $broadcast->football_match_id) }}" class="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-on-surface-variant transition hover:text-primary">← 試合詳細に戻る</a>
+
+    <x-reservation.steps :current="1" class="mb-6" />
+
+    <x-page-header title="予約入力" />
 
     @if (session('error'))
         <x-alert variant="error" class="mb-4">{{ session('error') }}</x-alert>
     @endif
 
-    <form method="POST" action="{{ route('reservations.confirm', $broadcast) }}" class="space-y-6 rounded-xl border border-pitch-100 bg-white p-6 shadow-sm">
+    <form method="POST" action="{{ route('reservations.confirm', $broadcast) }}" class="space-y-6 rounded-xl bg-surface-container-lowest p-4 shadow-sm ring-1 ring-outline-variant/40 sm:p-6">
         @csrf
-        @include('reservations._match_summary', ['footballMatch' => $broadcast->footballMatch, 'shop' => $broadcast->shop])
+        <x-reservation.match-summary :football-match="$broadcast->footballMatch" :shop="$broadcast->shop" />
 
         <fieldset>
-            <legend class="mb-2 text-sm font-bold text-pitch-950">座席種別</legend>
-            <div class="space-y-2">
+            <legend class="mb-3 text-xs font-bold uppercase tracking-wider text-on-surface-variant">座席種別</legend>
+            <div class="grid gap-3 sm:grid-cols-2">
                 @foreach ($seatTypes as $seatType)
                     @php $remaining = $seatType->remainingSeats(); @endphp
-                    <label class="flex items-center justify-between gap-3 rounded-lg border border-pitch-100 p-3 {{ $remaining > 0 ? 'cursor-pointer' : 'bg-gray-50 text-gray-500' }}">
-                        <span class="flex items-center gap-3">
-                            <input type="radio" name="broadcast_seat_type_id" value="{{ $seatType->id }}"
-                                   data-price="{{ $seatType->price }}"
-                                   @checked($selectedSeatType === $seatType->id) @disabled($remaining < 1)>
-                            <span class="font-bold">{{ $seatType->seatType->name }}</span>
-                        </span>
-                        <span class="text-sm">
-                            1人 {{ number_format($seatType->price) }}円
-                            ／ @if ($remaining > 0) 残り{{ $remaining }}席（1回{{ $seatType->max_people_per_reservation }}人まで） @else <span class="font-bold text-red-700">満席</span> @endif
+                    <label class="relative block {{ $remaining > 0 ? 'cursor-pointer' : 'cursor-not-allowed' }}">
+                        <input type="radio" name="broadcast_seat_type_id" value="{{ $seatType->id }}"
+                               data-price="{{ $seatType->price }}" class="peer sr-only"
+                               @checked($selectedSeatType === $seatType->id) @disabled($remaining < 1)>
+                        <span class="flex h-full flex-col justify-between gap-4 rounded-xl p-4 ring-1 ring-outline-variant transition peer-checked:bg-primary-fixed/40 peer-checked:ring-2 peer-checked:ring-primary-container peer-focus-visible:ring-2 peer-focus-visible:ring-secondary {{ $remaining > 0 ? 'bg-surface-container-lowest hover:bg-surface-container-low' : 'bg-surface-container-low text-on-surface-variant' }}">
+                            <span class="flex items-start justify-between gap-2">
+                                <span class="font-headline text-base font-semibold text-primary">{{ $seatType->seatType->name }}</span>
+                                @if ($remaining > 0)
+                                    <span class="shrink-0 text-xs font-bold text-secondary">残り{{ $remaining }}席</span>
+                                @else
+                                    <x-badge variant="danger" class="shrink-0">満席</x-badge>
+                                @endif
+                            </span>
+                            <span class="flex flex-col gap-1">
+                                <span class="text-sm font-bold text-on-surface">1人 {{ number_format($seatType->price) }}円</span>
+                                @if ($remaining > 0)
+                                    <span class="text-xs text-on-surface-variant">1回{{ $seatType->max_people_per_reservation }}人まで</span>
+                                @endif
+                            </span>
                         </span>
                     </label>
                 @endforeach
             </div>
             @error('broadcast_seat_type_id')
-                <p class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                <p class="mt-2 text-xs font-semibold text-error">{{ $message }}</p>
             @enderror
         </fieldset>
 
-        <div>
-            <label for="number_of_people" class="mb-2 block text-sm font-bold text-pitch-950">人数</label>
-            <input id="number_of_people" type="number" name="number_of_people" min="1" value="{{ $numberOfPeople }}" class="w-32 rounded-lg border border-pitch-100 px-3 py-2">
-            @error('number_of_people')
-                <p class="mt-1 text-sm text-red-700">{{ $message }}</p>
-            @enderror
+        <x-form.field name="number_of_people" label="人数" type="number" min="1" :value="$numberOfPeople" class="sm:max-w-40" />
+
+        <x-form.field name="customer_note" label="備考（任意・200文字以内）" type="textarea" rows="3" maxlength="200" :value="$customerNote" />
+
+        <div class="flex flex-col gap-4 border-t border-outline-variant/50 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p class="font-headline text-lg font-semibold text-primary">合計金額 <span id="total-price">-</span></p>
+            <x-button type="submit">確認画面へ</x-button>
         </div>
-
-        <div>
-            <label for="customer_note" class="mb-2 block text-sm font-bold text-pitch-950">備考（任意・200文字以内）</label>
-            <textarea id="customer_note" name="customer_note" rows="3" maxlength="200" class="w-full rounded-lg border border-pitch-100 px-3 py-2">{{ $customerNote }}</textarea>
-            @error('customer_note')
-                <p class="mt-1 text-sm text-red-700">{{ $message }}</p>
-            @enderror
-        </div>
-
-        <p class="text-lg font-extrabold text-pitch-950">合計金額 <span id="total-price">-</span></p>
-
-        <button type="submit" class="rounded-full bg-pitch-950 px-6 py-2 text-sm font-bold text-gold-400 transition hover:text-gold-300">確認画面へ</button>
     </form>
 </div>
 
