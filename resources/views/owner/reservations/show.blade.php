@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.owner')
 @section('title', '予約詳細')
 @section('content')
 @php
@@ -6,10 +6,13 @@
     $match = $broadcast->footballMatch;
 @endphp
 <div class="mx-auto max-w-3xl space-y-6">
-    <h1 class="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-pitch-950 sm:text-3xl">
-        <span class="text-gold-500">🎫</span>
-        予約詳細
-    </h1>
+    <nav aria-label="パンくず" class="text-xs font-semibold text-on-surface-variant">
+        <a href="{{ route('owner.reservations.index', $listConditions) }}" class="hover:text-primary">予約管理</a>
+        <span aria-hidden="true">/</span>
+        <span class="text-on-surface">予約詳細</span>
+    </nav>
+
+    <x-page-header title="予約詳細" eyebrow="Partner Console" />
 
     @if (session('success'))
         <x-alert variant="success">{{ session('success') }}</x-alert>
@@ -21,22 +24,22 @@
         <x-alert variant="error">{{ $message }}</x-alert>
     @enderror
 
-    <div class="space-y-6 rounded-xl border border-pitch-100 bg-white p-6 shadow-sm">
-        <dl class="grid gap-3 text-sm text-pitch-700 sm:grid-cols-[8rem_1fr]">
-            <dt class="font-semibold text-pitch-500">予約コード</dt>
-            <dd class="text-2xl font-extrabold tracking-widest text-pitch-950">{{ $reservation->reservation_code }}</dd>
-            <dt class="font-semibold text-pitch-500">ユーザー</dt>
+    <x-card class="space-y-6">
+        <dl class="grid gap-3 text-sm text-on-surface sm:grid-cols-[8rem_1fr]">
+            <dt class="font-semibold text-on-surface-variant">予約コード</dt>
+            <dd class="font-headline text-2xl font-extrabold tracking-widest text-primary">{{ $reservation->reservation_code }}</dd>
+            <dt class="font-semibold text-on-surface-variant">ユーザー</dt>
             <dd>{{ $reservation->user->name }}</dd>
-            <dt class="font-semibold text-pitch-500">試合</dt>
+            <dt class="font-semibold text-on-surface-variant">試合</dt>
             <dd>
-                <span class="font-bold text-pitch-950">{{ $match->homeTeam->displayName() }} vs {{ $match->awayTeam->displayName() }}</span><br>
-                <span class="text-xs">{{ $match->kickoff_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}</span>
+                <span class="font-bold">{{ $match->homeTeam->displayName() }} vs {{ $match->awayTeam->displayName() }}</span><br>
+                <span class="text-xs text-on-surface-variant">{{ $match->kickoff_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}</span>
             </dd>
-            <dt class="font-semibold text-pitch-500">予約状態</dt>
-            <dd>
-                <span class="rounded-full bg-pitch-100 px-3 py-1 text-xs font-bold text-pitch-950">{{ $reservation->statusLabel() }}</span>
+            <dt class="font-semibold text-on-surface-variant">予約状態</dt>
+            <dd class="flex flex-wrap items-center gap-2">
+                <x-owner.reservation-status-badge :reservation="$reservation" />
                 @foreach ($reservation->availableVisitStatusChanges() as $nextStatus)
-                    <form method="POST" action="{{ route('owner.reservations.visit-status', $reservation) }}" data-confirm="予約 {{ $reservation->reservation_code }} を{{ \App\Models\Reservation::visitStatusLabel($nextStatus) }}にしますか？" class="ml-2 inline">
+                    <form method="POST" action="{{ route('owner.reservations.visit-status', $reservation) }}" data-confirm="予約 {{ $reservation->reservation_code }} を{{ \App\Models\Reservation::visitStatusLabel($nextStatus) }}にしますか？" class="inline">
                         @csrf
                         @method('PATCH')
                         <input type="hidden" name="status" value="{{ $nextStatus }}">
@@ -46,41 +49,41 @@
                                 <input type="hidden" name="{{ $key }}" value="{{ $listConditions[$key] }}">
                             @endisset
                         @endforeach
-                        <button type="submit" class="rounded-md border border-pitch-100 bg-white px-3 py-1 text-xs font-bold text-pitch-700 transition hover:text-gold-500">{{ $reservation->visitStatusButtonLabel($nextStatus) }}</button>
+                        <x-button variant="secondary" size="sm">{{ $reservation->visitStatusButtonLabel($nextStatus) }}</x-button>
                     </form>
                 @endforeach
             </dd>
         </dl>
 
-        <dl class="grid gap-3 border-t border-pitch-100 pt-4 text-sm text-pitch-700 sm:grid-cols-[8rem_1fr]">
-            <dt class="font-semibold text-pitch-500">座席</dt>
+        <dl class="grid gap-3 border-t border-outline-variant/60 pt-4 text-sm text-on-surface sm:grid-cols-[8rem_1fr]">
+            <dt class="font-semibold text-on-surface-variant">座席</dt>
             <dd>{{ $reservation->broadcastSeatType->seatType->name }}</dd>
-            <dt class="font-semibold text-pitch-500">人数</dt>
+            <dt class="font-semibold text-on-surface-variant">人数</dt>
             <dd>{{ $reservation->number_of_people }}人</dd>
-            <dt class="font-semibold text-pitch-500">単価</dt>
+            <dt class="font-semibold text-on-surface-variant">単価</dt>
             <dd>{{ number_format($reservation->unit_price) }}円</dd>
-            <dt class="font-semibold text-pitch-500">合計金額</dt>
-            <dd class="text-lg font-extrabold text-pitch-950">{{ number_format($reservation->total_price) }}円</dd>
-            <dt class="font-semibold text-pitch-500">備考</dt>
+            <dt class="font-semibold text-on-surface-variant">合計金額</dt>
+            <dd class="text-lg font-extrabold text-primary">{{ number_format($reservation->total_price) }}円</dd>
+            <dt class="font-semibold text-on-surface-variant">備考</dt>
             <dd class="whitespace-pre-line">{{ $reservation->customer_note !== null && $reservation->customer_note !== '' ? $reservation->customer_note : 'なし' }}</dd>
         </dl>
 
-        <dl class="grid gap-3 border-t border-pitch-100 pt-4 text-sm text-pitch-700 sm:grid-cols-[8rem_1fr]">
-            <dt class="font-semibold text-pitch-500">予約日時</dt>
+        <dl class="grid gap-3 border-t border-outline-variant/60 pt-4 text-sm text-on-surface sm:grid-cols-[8rem_1fr]">
+            <dt class="font-semibold text-on-surface-variant">予約日時</dt>
             <dd>{{ $reservation->reserved_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}</dd>
             @if ($reservation->status === \App\Models\Reservation::STATUS_VISITED && $reservation->visited_at)
-                <dt class="font-semibold text-pitch-500">来店日時</dt>
+                <dt class="font-semibold text-on-surface-variant">来店日時</dt>
                 <dd>{{ $reservation->visited_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}</dd>
             @endif
             @if ($reservation->status === \App\Models\Reservation::STATUS_CANCELLED && $reservation->cancelled_at)
-                <dt class="font-semibold text-pitch-500">キャンセル日時</dt>
+                <dt class="font-semibold text-on-surface-variant">キャンセル日時</dt>
                 <dd>{{ $reservation->cancelled_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}</dd>
             @endif
         </dl>
 
-        <div class="text-sm font-semibold text-pitch-700">
-            <a href="{{ route('owner.reservations.index', $listConditions) }}" class="transition hover:text-gold-500">一覧に戻る</a>
+        <div>
+            <x-button variant="secondary" :href="route('owner.reservations.index', $listConditions)">一覧に戻る</x-button>
         </div>
-    </div>
+    </x-card>
 </div>
 @endsection

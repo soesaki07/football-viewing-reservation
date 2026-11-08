@@ -255,7 +255,7 @@ class OwnerBroadcastEditTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/name="seats\['.$addable->id.'\]\[selected\]"[^>]*\bchecked\b/', $html);
         // 追加できる座席の初期値は座席種別の既定値
         foreach ([[$this->counter->id, 'capacity', '10'], [$this->counter->id, 'price', '3000'], [$this->counter->id, 'max_people_per_reservation', '4'], [$addable->id, 'capacity', '6'], [$addable->id, 'price', '5000']] as [$id, $field, $value]) {
-            $this->assertMatchesRegularExpression('/name="seats\['.$id.'\]\['.$field.'\]"[^>]*\bvalue="'.$value.'"/', $html);
+            $this->assertMatchesRegularExpression('/<input[^>]*(?=[^>]*name="seats\['.$id.'\]\['.$field.'\]")(?=[^>]*\bvalue="'.$value.'")[^>]*>/', $html);
         }
     }
 

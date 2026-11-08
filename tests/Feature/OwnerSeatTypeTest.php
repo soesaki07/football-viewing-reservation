@@ -527,9 +527,9 @@ class OwnerSeatTypeTest extends TestCase
         $response = $this->actingAs($this->owner)->get(route('owner.seat-types.edit', $seatType))->assertOk();
         // 入力欄ごとに、名前と値の組で確かめる（他の入力欄の値と重ならないようにする）
         $html = $response->getContent();
-        $this->assertMatchesRegularExpression('/name="name"[^>]*value="カウンター席"/', $html);
-        $this->assertMatchesRegularExpression('/name="default_capacity"[^>]*value="12"/', $html);
-        $this->assertMatchesRegularExpression('/name="default_price"[^>]*value="2800"/', $html);
+        $this->assertMatchesRegularExpression('/<input[^>]*(?=[^>]*name="name")(?=[^>]*value="カウンター席")[^>]*>/', $html);
+        $this->assertMatchesRegularExpression('/<input[^>]*(?=[^>]*name="default_capacity")(?=[^>]*value="12")[^>]*>/', $html);
+        $this->assertMatchesRegularExpression('/<input[^>]*(?=[^>]*name="default_price")(?=[^>]*value="2800")[^>]*>/', $html);
         $response
             ->assertSee('登録済みの放映の席数・料金は変わりません')
             ->assertSee('この座席種別を使っている放映：1件');
@@ -626,8 +626,8 @@ class OwnerSeatTypeTest extends TestCase
             ->assertSee('ソファ席')
             ->getContent();
         $id = $seatType->id;
-        $this->assertMatchesRegularExpression('/name="seats\['.$id.'\]\[capacity\]"[^>]*value="8"/', $html);
-        $this->assertMatchesRegularExpression('/name="seats\['.$id.'\]\[price\]"[^>]*value="3500"/', $html);
+        $this->assertMatchesRegularExpression('/<input[^>]*(?=[^>]*name="seats\['.$id.'\]\[capacity\]")(?=[^>]*value="8")[^>]*>/', $html);
+        $this->assertMatchesRegularExpression('/<input[^>]*(?=[^>]*name="seats\['.$id.'\]\[price\]")(?=[^>]*value="3500")[^>]*>/', $html);
 
         // 放映の登録で選べる
         $this->actingAs($this->owner)->post(route('owner.broadcasts.store'), [

@@ -1,167 +1,127 @@
-@extends('layouts.app')
+@extends('layouts.owner')
 @section('title', '放映を登録')
+@if (! $shops->isEmpty())
+@section('shop-switcher')
+<x-owner.shop-switcher :shops="$shops" :current="$shop" />
+@endsection
+@endif
 @section('content')
 <div class="space-y-6">
-    <h1 class="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-pitch-950 sm:text-3xl">
-        <span class="text-gold-500">📺</span>
-        放映を登録
-    </h1>
-
     @if ($shops->isEmpty())
-        <p class="rounded-xl border border-pitch-100 bg-white p-6 text-sm text-pitch-700">店舗が登録されていません。</p>
+        <x-page-header title="放映を登録" eyebrow="Partner Console" />
+        <x-card class="text-sm text-on-surface-variant">店舗が登録されていません。</x-card>
     @else
+        <nav aria-label="パンくず" class="text-xs font-semibold text-on-surface-variant">
+            <a href="{{ route('owner.broadcasts.index', ['shop' => $shop->id]) }}" class="hover:text-primary">放映管理</a>
+            <span aria-hidden="true">/</span>
+            <span class="text-on-surface">放映を登録</span>
+        </nav>
+
+        <x-page-header title="放映を登録" eyebrow="Partner Console" />
+
         {{-- 試合のエラー（試合は画面上の入力欄がないので、ここで理由を見せる） --}}
         @if ($errors->has('football_match_id'))
             <x-alert variant="error" :messages="$errors->get('football_match_id')" />
         @endif
 
-        {{-- 店舗の切り替え（2店舗以上のときだけ） --}}
-        @if ($shops->count() >= 2)
-            <nav class="flex flex-wrap gap-2" aria-label="店舗の切り替え">
-                @foreach ($shops as $ownedShop)
-                    <a href="{{ route('owner.broadcasts.create', ['shop' => $ownedShop->id]) }}"
-                        @class([
-                            'rounded-full px-4 py-2 text-sm font-bold transition',
-                            'bg-pitch-800 text-white' => $ownedShop->id === $shop->id,
-                            'border border-pitch-100 bg-white text-pitch-700 hover:text-gold-500' => $ownedShop->id !== $shop->id,
-                        ])
-                        @if ($ownedShop->id === $shop->id) aria-current="page" @endif>{{ $ownedShop->name }}</a>
-                @endforeach
-            </nav>
-        @endif
-
-        <p class="text-sm font-semibold text-pitch-500">店舗：<span class="text-pitch-950">{{ $shop->name }}</span></p>
+        <p class="text-sm font-semibold text-on-surface-variant">店舗：<span class="text-on-surface">{{ $shop->name }}</span></p>
 
         @if ($seatTypes->isEmpty())
-            <p class="rounded-xl border border-pitch-100 bg-white p-6 text-sm text-pitch-700">有効な座席種別がないため、放映を登録できません。先に<a href="{{ route('owner.seat-types.create', ['shop' => $shop->id]) }}" class="font-bold text-pitch-700 underline hover:text-gold-500">座席種別を登録</a>してください。</p>
+            <x-card class="text-sm text-on-surface-variant">有効な座席種別がないため、放映を登録できません。先に<a href="{{ route('owner.seat-types.create', ['shop' => $shop->id]) }}" class="font-bold text-primary underline hover:text-secondary">座席種別を登録</a>してください。</x-card>
         @else
             {{-- 1. 大会と試合を選ぶ --}}
-            <form method="GET" action="{{ route('owner.broadcasts.create') }}" class="space-y-3 rounded-xl border border-pitch-100 bg-white p-4 shadow-sm">
+            <form method="GET" action="{{ route('owner.broadcasts.create') }}">
                 <input type="hidden" name="shop" value="{{ $shop->id }}">
-                <div class="flex flex-wrap items-center gap-3">
-                    <label for="competition" class="text-sm font-semibold text-pitch-500">大会</label>
-                    <select id="competition" name="competition" class="max-w-full rounded-md border border-pitch-100 bg-white px-3 py-2 text-sm text-pitch-950">
-                        <option value="">大会を選択してください</option>
-                        @foreach ($competitions as $competition)
-                            <option value="{{ $competition->id }}" @selected($competitionId === $competition->id)>{{ $competition->displayName() }}</option>
-                        @endforeach
-                    </select>
-                    <button type="submit" class="rounded-md border border-pitch-100 bg-white px-4 py-2 text-sm font-bold text-pitch-700 transition hover:text-gold-500">大会を選ぶ</button>
-                </div>
+                <x-card class="space-y-4">
+                    <x-owner.form-section title="大会と試合を選ぶ">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                            <div class="min-w-0 flex-1">
+                                <x-form.field name="competition" type="select" label="大会">
+                                    <option value="">大会を選択してください</option>
+                                    @foreach ($competitions as $competition)
+                                        <option value="{{ $competition->id }}" @selected($competitionId === $competition->id)>{{ $competition->displayName() }}</option>
+                                    @endforeach
+                                </x-form.field>
+                            </div>
+                            <x-button variant="secondary">大会を選ぶ</x-button>
+                        </div>
 
-                @if ($competitionId !== null)
-                    <div class="flex flex-wrap items-center gap-3">
-                        <label for="match" class="text-sm font-semibold text-pitch-500">試合</label>
-                        @if ($matchOptions->isEmpty())
-                            <p class="text-sm text-pitch-700">登録できる試合がありません。</p>
-                        @else
-                            <select id="match" name="match" class="max-w-full rounded-md border border-pitch-100 bg-white px-3 py-2 text-sm text-pitch-950">
-                                <option value="">試合を選択してください</option>
-                                @foreach ($matchOptions as $matchOption)
-                                    <option value="{{ $matchOption->id }}" @selected($selectedMatch?->id === $matchOption->id)>
-                                        {{ $matchOption->homeTeam->displayName() }} vs {{ $matchOption->awayTeam->displayName() }}（{{ $matchOption->kickoff_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}）
-                                    </option>
-                                @endforeach
-                            </select>
-                            <button type="submit" class="rounded-md bg-pitch-800 px-4 py-2 text-sm font-bold text-white transition hover:bg-pitch-700">この試合で入力する</button>
+                        @if ($competitionId !== null)
+                            @if ($matchOptions->isEmpty())
+                                <p class="text-sm text-on-surface-variant">登録できる試合がありません。</p>
+                            @else
+                                <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                                    <div class="min-w-0 flex-1">
+                                        <x-form.field name="match" type="select" label="試合">
+                                            <option value="">試合を選択してください</option>
+                                            @foreach ($matchOptions as $matchOption)
+                                                <option value="{{ $matchOption->id }}" @selected($selectedMatch?->id === $matchOption->id)>
+                                                    {{ $matchOption->homeTeam->displayName() }} vs {{ $matchOption->awayTeam->displayName() }}（{{ $matchOption->kickoff_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}）
+                                                </option>
+                                            @endforeach
+                                        </x-form.field>
+                                    </div>
+                                    <x-button>この試合で入力する</x-button>
+                                </div>
+                            @endif
                         @endif
-                    </div>
-                @endif
+                    </x-owner.form-section>
+                </x-card>
             </form>
 
             {{-- 2. 受付期間・座席を入力する --}}
             @if ($selectedMatch !== null)
-                <form method="POST" action="{{ route('owner.broadcasts.store') }}" class="space-y-6 rounded-xl border border-pitch-100 bg-white p-4 shadow-sm">
+                <form method="POST" action="{{ route('owner.broadcasts.store') }}">
                     @csrf
                     <input type="hidden" name="shop_id" value="{{ $shop->id }}">
                     <input type="hidden" name="football_match_id" value="{{ $selectedMatch->id }}">
 
-                    <p class="text-sm font-semibold text-pitch-500">試合：<span class="text-pitch-950">{{ $selectedMatch->homeTeam->displayName() }} vs {{ $selectedMatch->awayTeam->displayName() }}（{{ $selectedMatch->kickoff_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}）</span></p>
+                    <x-card class="space-y-8">
+                        <x-owner.form-section title="試合と受付期間">
+                            <p class="text-sm font-semibold text-on-surface-variant">試合：<span class="text-on-surface">{{ $selectedMatch->homeTeam->displayName() }} vs {{ $selectedMatch->awayTeam->displayName() }}（{{ $selectedMatch->kickoff_at->timezone('Asia/Tokyo')->format('Y/m/d H:i') }}）</span></p>
 
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <label for="reservation_start_at" class="block text-sm font-semibold text-pitch-500">予約開始日時（日本時間）</label>
-                            <input type="datetime-local" id="reservation_start_at" name="reservation_start_at" required
-                                value="{{ old('reservation_start_at', now()->timezone('Asia/Tokyo')->startOfMinute()->format('Y-m-d\TH:i')) }}"
-                                class="mt-1 w-full rounded-md border border-pitch-100 bg-white px-3 py-2 text-sm text-pitch-950">
-                            @error('reservation_start_at')
-                                <p class="mt-1 text-sm font-bold text-red-700">{{ $message }}</p>
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <x-form.field name="reservation_start_at" type="datetime-local" label="予約開始日時（日本時間）" required
+                                    :value="now()->timezone('Asia/Tokyo')->startOfMinute()->format('Y-m-d\TH:i')" />
+                                <x-form.field name="reservation_end_at" type="datetime-local" label="予約終了日時（日本時間）" required
+                                    :value="$selectedMatch->kickoff_at->copy()->addHours(3)->timezone('Asia/Tokyo')->format('Y-m-d\TH:i')"
+                                    hint="キックオフの3時間後（試合終了）まで設定できます。" />
+                            </div>
+
+                            <x-form.field name="status" type="select" label="放映ステータス">
+                                <option value="{{ \App\Models\Broadcast::STATUS_DRAFT }}" @selected(old('status', \App\Models\Broadcast::STATUS_DRAFT) === \App\Models\Broadcast::STATUS_DRAFT)>非公開</option>
+                                <option value="{{ \App\Models\Broadcast::STATUS_PUBLISHED }}" @selected(old('status', \App\Models\Broadcast::STATUS_DRAFT) === \App\Models\Broadcast::STATUS_PUBLISHED)>公開</option>
+                            </x-form.field>
+                        </x-owner.form-section>
+
+                        <fieldset class="space-y-4">
+                            <legend class="w-full border-b border-outline-variant/60 pb-2 font-headline text-lg font-semibold text-primary">販売する座席</legend>
+                            @error('seats')
+                                <p class="text-sm font-bold text-error">{{ $message }}</p>
                             @enderror
-                        </div>
-                        <div>
-                            <label for="reservation_end_at" class="block text-sm font-semibold text-pitch-500">予約終了日時（日本時間）</label>
-                            <input type="datetime-local" id="reservation_end_at" name="reservation_end_at" required
-                                value="{{ old('reservation_end_at', $selectedMatch->kickoff_at->copy()->addHours(3)->timezone('Asia/Tokyo')->format('Y-m-d\TH:i')) }}"
-                                class="mt-1 w-full rounded-md border border-pitch-100 bg-white px-3 py-2 text-sm text-pitch-950">
-                            @error('reservation_end_at')
-                                <p class="mt-1 text-sm font-bold text-red-700">{{ $message }}</p>
-                            @enderror
-                            <p class="mt-1 text-xs text-pitch-500">キックオフの3時間後（試合終了）まで設定できます。</p>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="status" class="block text-sm font-semibold text-pitch-500">放映ステータス</label>
-                        <select id="status" name="status" class="mt-1 rounded-md border border-pitch-100 bg-white px-3 py-2 text-sm text-pitch-950">
-                            <option value="{{ \App\Models\Broadcast::STATUS_DRAFT }}" @selected(old('status', \App\Models\Broadcast::STATUS_DRAFT) === \App\Models\Broadcast::STATUS_DRAFT)>非公開</option>
-                            <option value="{{ \App\Models\Broadcast::STATUS_PUBLISHED }}" @selected(old('status', \App\Models\Broadcast::STATUS_DRAFT) === \App\Models\Broadcast::STATUS_PUBLISHED)>公開</option>
-                        </select>
-                        @error('status')
-                            <p class="mt-1 text-sm font-bold text-red-700">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <fieldset class="space-y-3">
-                        <legend class="text-sm font-semibold text-pitch-500">販売する座席</legend>
-                        @error('seats')
-                            <p class="text-sm font-bold text-red-700">{{ $message }}</p>
-                        @enderror
-                        @php($oldSeats = old('seats'))
-                        @foreach ($seatTypes as $seatType)
-                            {{-- 入力値には、チェックを外した座席の席数なども含まれるため、selected の有無で判定する --}}
-                            @php($isChecked = ! empty($oldSeats[$seatType->id]['selected']))
-                            <div class="rounded-lg border border-pitch-100 p-3">
-                                <label class="flex items-center gap-2 text-sm font-bold text-pitch-950">
-                                    <input type="checkbox" name="seats[{{ $seatType->id }}][selected]" value="1" @checked($isChecked)>
-                                    {{ $seatType->name }}
-                                </label>
-                                <div class="mt-2 grid gap-3 sm:grid-cols-3">
-                                    <div>
-                                        <label for="seat_{{ $seatType->id }}_capacity" class="block text-xs font-semibold text-pitch-500">販売席数</label>
-                                        <input type="number" id="seat_{{ $seatType->id }}_capacity" name="seats[{{ $seatType->id }}][capacity]" min="1" max="65535"
-                                            value="{{ old("seats.{$seatType->id}.capacity", $seatType->default_capacity) }}"
-                                            class="mt-1 w-full rounded-md border border-pitch-100 bg-white px-3 py-2 text-sm text-pitch-950">
-                                        @error("seats.{$seatType->id}.capacity")
-                                            <p class="mt-1 text-sm font-bold text-red-700">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                    <div>
-                                        <label for="seat_{{ $seatType->id }}_price" class="block text-xs font-semibold text-pitch-500">料金（円）</label>
-                                        <input type="number" id="seat_{{ $seatType->id }}_price" name="seats[{{ $seatType->id }}][price]" min="0" max="1000000"
-                                            value="{{ old("seats.{$seatType->id}.price", $seatType->default_price) }}"
-                                            class="mt-1 w-full rounded-md border border-pitch-100 bg-white px-3 py-2 text-sm text-pitch-950">
-                                        @error("seats.{$seatType->id}.price")
-                                            <p class="mt-1 text-sm font-bold text-red-700">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                    <div>
-                                        <label for="seat_{{ $seatType->id }}_max" class="block text-xs font-semibold text-pitch-500">1予約の最大人数</label>
-                                        <input type="number" id="seat_{{ $seatType->id }}_max" name="seats[{{ $seatType->id }}][max_people_per_reservation]" min="1" max="65535"
-                                            value="{{ old("seats.{$seatType->id}.max_people_per_reservation", 4) }}"
-                                            class="mt-1 w-full rounded-md border border-pitch-100 bg-white px-3 py-2 text-sm text-pitch-950">
-                                        @error("seats.{$seatType->id}.max_people_per_reservation")
-                                            <p class="mt-1 text-sm font-bold text-red-700">{{ $message }}</p>
-                                        @enderror
+                            @php($oldSeats = old('seats'))
+                            @foreach ($seatTypes as $seatType)
+                                {{-- 入力値には、チェックを外した座席の席数なども含まれるため、selected の有無で判定する --}}
+                                @php($isChecked = ! empty($oldSeats[$seatType->id]['selected']))
+                                <div class="rounded-xl bg-surface-container-low p-4">
+                                    <label class="flex items-center gap-2 text-sm font-bold text-on-surface">
+                                        <input type="checkbox" name="seats[{{ $seatType->id }}][selected]" value="1" @checked($isChecked) class="h-4 w-4 accent-primary-container">
+                                        {{ $seatType->name }}
+                                    </label>
+                                    <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                                        <x-form.field :name="'seats['.$seatType->id.'][capacity]'" type="number" label="販売席数" :value="$seatType->default_capacity" min="1" max="65535" />
+                                        <x-form.field :name="'seats['.$seatType->id.'][price]'" type="number" label="料金（円）" :value="$seatType->default_price" min="0" max="1000000" />
+                                        <x-form.field :name="'seats['.$seatType->id.'][max_people_per_reservation]'" type="number" label="1予約の最大人数" :value="4" min="1" max="65535" />
                                     </div>
                                 </div>
-                            </div>
-                        @endforeach
-                    </fieldset>
+                            @endforeach
+                        </fieldset>
 
-                    <div class="flex flex-wrap items-center gap-3">
-                        <button type="submit" class="rounded-md bg-pitch-800 px-6 py-2 text-sm font-bold text-white transition hover:bg-pitch-700">登録する</button>
-                        <a href="{{ route('owner.broadcasts.index', ['shop' => $shop->id]) }}" class="text-sm font-bold text-pitch-700 hover:text-gold-500">一覧に戻る</a>
-                    </div>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <x-button>登録する</x-button>
+                            <x-button variant="secondary" :href="route('owner.broadcasts.index', ['shop' => $shop->id])">一覧に戻る</x-button>
+                        </div>
+                    </x-card>
                 </form>
             @endif
         @endif
